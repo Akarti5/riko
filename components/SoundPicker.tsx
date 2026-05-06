@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { useRikoStore } from '../store/useStore';
 import { Colors } from '../constants/theme';
-import { X, Check, Volume2, Plus } from 'lucide-react-native';
+import { X, Check, Volume2, Plus, Play, Pause } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
@@ -19,14 +19,32 @@ interface SoundPickerProps {
 
 export default function SoundPicker({ isVisible, onClose }: SoundPickerProps) {
   const { config, setSound } = useRikoStore();
-  const [currentUri, setCurrentUri] = React.useState<string | null>(null);
+  const [currentUri, setCurrentUri] = useState<string | null>(null);
+  
   const player = useAudioPlayer(currentUri);
   const status = useAudioPlayerStatus(player);
 
-  const playPreview = async (uri: string | null) => {
+  const togglePlayback = async (uri: string | null) => {
     if (!uri) return;
-    setCurrentUri(uri);
-    player.play();
+    
+    // If it's a different sound, switch to it
+    if (uri !== currentUri) {
+      setCurrentUri(uri);
+      // We need to wait for the next render for player to update, 
+      // but usually player.play() works if currentUri was already set.
+    }
+
+    if (status.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  };
+
+  // Ensure music stops when closing the modal
+  const handleClose = () => {
+    player.pause();
+    onClose();
   };
 
   const pickDocument = async () => {
@@ -50,50 +68,48 @@ export default function SoundPicker({ isVisible, onClose }: SoundPickerProps) {
       visible={isVisible}
       animationType="slide"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.title}>Select Sound</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <X color={Colors.dark.muted} size={24} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
             <Text style={styles.sectionTitle}>SYSTEM SOUNDS</Text>
-            {SYSTEM_SOUNDS.map((sound) => (
-              <TouchableOpacity
-                key={sound.id}
-                style={[
-                  styles.soundItem,
-                  config.soundUri === null && config.soundName === sound.name && styles.activeItem
-                ]}
-                onPress={() => setSound(null, sound.name)}
-              >
-                <View style={styles.soundInfo}>
-                  <View style={styles.iconContainer}>
-                    <Volume2 color={Colors.dark.orange} size={20} />
+            {SYSTEM_SOUNDS.map((sound) => {
+              const isActive = config.soundUri === null && config.soundName === sound.name;
+              return (
+                <TouchableOpacity
+                  key={sound.id}
+                  style={[styles.soundItem, isActive && styles.activeItem]}
+                  onPress={() => setSound(null, sound.name)}
+                >
+                  <View style={styles.soundInfo}>
+                    <View style={styles.iconContainer}>
+                      <Volume2 color={Colors.dark.orange} size={20} />
+                    </View>
+                    <View>
+                      <Text style={styles.soundName}>{sound.name}</Text>
+                      <Text style={styles.soundDesc}>{sound.desc}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.soundName}>{sound.name}</Text>
-                    <Text style={styles.soundDesc}>{sound.desc}</Text>
-                  </View>
-                </View>
-                {(config.soundUri === null && config.soundName === sound.name) && (
-                  <Check color={Colors.dark.orange} size={20} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  {isActive && <Check color={Colors.dark.orange} size={20} />}
+                </TouchableOpacity>
+              );
+            })}
 
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>CUSTOM SOUND</Text>
             {config.soundUri && (
-              <TouchableOpacity
-                style={[styles.soundItem, styles.activeItem]}
-                onPress={() => playPreview(config.soundUri)}
-              >
-                <View style={styles.soundInfo}>
+              <View style={[styles.soundItem, styles.activeItem]}>
+                <TouchableOpacity 
+                  style={styles.soundInfo} 
+                  onPress={() => setSound(config.soundUri, config.soundName)}
+                >
                   <View style={styles.iconContainer}>
                     <Volume2 color={Colors.dark.orange} size={20} />
                   </View>
@@ -101,9 +117,22 @@ export default function SoundPicker({ isVisible, onClose }: SoundPickerProps) {
                     <Text style={styles.soundName} numberOfLines={1}>{config.soundName}</Text>
                     <Text style={styles.soundDesc}>Custom user sound</Text>
                   </View>
+                </TouchableOpacity>
+                
+                <View style={styles.actionGroup}>
+                  <TouchableOpacity 
+                    style={styles.playButton} 
+                    onPress={() => togglePlayback(config.soundUri)}
+                  >
+                    {status.playing && currentUri === config.soundUri ? (
+                      <Pause color="#FFF" size={16} fill="#FFF" />
+                    ) : (
+                      <Play color="#FFF" size={16} fill="#FFF" />
+                    )}
+                  </TouchableOpacity>
+                  <Check color={Colors.dark.orange} size={20} />
                 </View>
-                <Check color={Colors.dark.orange} size={20} />
-              </TouchableOpacity>
+              </View>
             )}
 
             <TouchableOpacity style={styles.addButton} onPress={pickDocument}>
@@ -112,7 +141,7 @@ export default function SoundPicker({ isVisible, onClose }: SoundPickerProps) {
             </TouchableOpacity>
           </ScrollView>
 
-          <TouchableOpacity style={styles.confirmButton} onPress={onClose}>
+          <TouchableOpacity style={styles.confirmButton} onPress={handleClose}>
             <Text style={styles.confirmButtonText}>CONFIRM</Text>
           </TouchableOpacity>
         </View>
@@ -177,6 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(254, 102, 21, 0.05)',
   },
   soundInfo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -198,6 +228,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.dark.muted,
     marginTop: 2,
+  },
+  actionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  playButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.orange,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addButton: {
     flexDirection: 'row',

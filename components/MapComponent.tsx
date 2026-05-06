@@ -1,6 +1,5 @@
-import { LocateFixed } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import MapView, {
   Circle,
   Marker,
@@ -9,45 +8,6 @@ import MapView, {
 } from "react-native-maps";
 import { Colors } from "../constants/theme";
 import { useRikoStore } from "../store/useStore";
-
-const RippleCircle = ({ delay = 0 }) => {
-  const scale = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0.8)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.parallel([
-          Animated.timing(scale, {
-            toValue: 4,
-            duration: 2000,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 2000,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <Animated.View
-      style={[
-        styles.ripple,
-        {
-          transform: [{ scale }],
-          opacity,
-        },
-      ]}
-    />
-  );
-};
 
 export default function MapComponent() {
   const mapRef = useRef<MapView>(null);
@@ -60,8 +20,11 @@ export default function MapComponent() {
     setDestination,
   } = useRikoStore();
 
+  const hasInitiallyCentered = useRef(false);
+
   useEffect(() => {
     if (userLocation && mapRef.current) {
+      // Manual center via button
       mapRef.current.animateToRegion(
         {
           latitude: userLocation.latitude,
@@ -74,34 +37,36 @@ export default function MapComponent() {
     }
   }, [centerTrigger]);
 
+  // Initial auto-center when location first acquired
+  useEffect(() => {
+    if (userLocation && !hasInitiallyCentered.current && mapRef.current) {
+      mapRef.current.setCamera({
+        center: {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+        },
+        zoom: 15,
+      });
+      hasInitiallyCentered.current = true;
+    }
+  }, [userLocation]);
+
   const onMapLongPress = (e: any) => {
     if (!isArmed) {
       const coord = e.nativeEvent.coordinate;
       setDestination(coord);
 
-      // Reverse geocoding from OpenStreetMap Nominatim with more details
       fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.latitude}&lon=${coord.longitude}&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'RikoApp/1.0 (Mobile; Android/iOS)',
-          },
-        }
+        { headers: { 'User-Agent': 'RikoApp/1.0' } }
       )
         .then((res) => res.json())
         .then((data) => {
-          const address = data.address || {};
-          const name =
-            address.amenity ||
-            address.shop ||
-            address.building ||
-            address.road ||
-            address.suburb ||
-            data.display_name?.split(",")[0] ||
-            "Selected Location";
+          const addr = data.address || {};
+          const name = addr.amenity || addr.shop || addr.building || data.display_name?.split(",")[0] || "Selected Location";
           setDestination(coord, name);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   };
 
@@ -118,92 +83,77 @@ export default function MapComponent() {
           longitudeDelta: 0.01,
         }}
         onLongPress={onMapLongPress}
-        mapType="none" // Hide base map to show OSM tiles
+        mapType="none"
       >
-        {/* MapTiler OpenStreetMap style as per user request */}
         <UrlTile
           urlTemplate="https://api.maptiler.com/maps/openstreetmap/256/{z}/{x}/{y}.png?key=SHKJsJP0nENFEUm6CDSX"
           maximumZ={19}
-          flipY={false}
-          zIndex={-1}
+          zIndex={-10}
           tileSize={256}
-          tileCacheMaxAge={7 * 24 * 60 * 60}
         />
-
-        {userLocation && (
-          <Marker 
-            coordinate={userLocation} 
-            flat 
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={10} // Ensure it is above the tile layer
-          >
-            <View style={styles.userMarkerContainer}>
-              <RippleCircle delay={0} />
-              <RippleCircle delay={1000} />
-              <View style={styles.userMarkerOuter}>
-                <View style={styles.userMarkerInner} />
-              </View>
-            </View>
-          </Marker>
-        )}
 
         {destination && (
           <>
-            <Marker coordinate={destination} pinColor={Colors.dark.orange} tracksViewChanges={false} />
+            <Marker coordinate={destination} pinColor={Colors.dark.orange} zIndex={1} />
             <Circle
               center={destination}
               radius={config.radius}
               fillColor="rgba(254, 102, 21, 0.1)"
               strokeColor={Colors.dark.orange}
               strokeWidth={1}
+              zIndex={0}
             />
           </>
         )}
-      </MapView>
 
-        {/* Locate button moved to BottomCard */}
+        {userLocation && (
+          <Marker
+            key={`user-${userLocation.latitude}-${userLocation.longitude}`}
+            coordinate={userLocation}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={100}
+            tracksViewChanges={true} // Essential for initial render of custom marker views
+          >
+            <View style={styles.markerBox}>
+              <View style={styles.accuracyCircle} />
+              <View style={styles.centerDot} />
+            </View>
+          </Marker>
+        )}
+      </MapView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  userMarkerContainer: {
-    width: 100,
-    height: 100,
+  container: { flex: 1, backgroundColor: "#000" },
+  map: { ...StyleSheet.absoluteFillObject },
+  markerBox: {
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  ripple: {
+  accuracyCircle: {
     position: "absolute",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(66, 133, 244, 0.4)",
-    borderWidth: 1,
-    borderColor: "rgba(66, 133, 244, 0.6)",
-  },
-  userMarkerOuter: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "rgba(66, 133, 244, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(66, 133, 244, 0.4)",
+  },
+  centerDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#4285F4",
     borderWidth: 2,
     borderColor: "#FFF",
-    zIndex: 2,
-  },
-  userMarkerInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#4285F4",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+    elevation: 5,
   },
 });

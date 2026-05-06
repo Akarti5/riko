@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg";
 import AlarmScreen from "../components/AlarmScreen";
@@ -6,16 +6,34 @@ import BottomCard from "../components/BottomCard";
 import DestinationHeader from "../components/DestinationHeader";
 import MapComponent from "../components/MapComponent";
 import MonitoringHUD from "../components/MonitoringHUD";
+import LoadingScreen from "../components/LoadingScreen";
 import { useLocationTracking } from "../hooks/useLocation";
+import { useRikoStore } from "../store/useStore";
 
 const { width, height } = Dimensions.get("window");
 
 export default function HomeScreen() {
+  const userLocation = useRikoStore((state) => state.userLocation);
+  const [showLoading, setShowLoading] = useState(true);
+
   // Initialize location tracking
   useLocationTracking();
 
+  useEffect(() => {
+    // Hide loading screen only when location is acquired
+    if (userLocation) {
+      // Small delay for smooth transition
+      const timer = setTimeout(() => {
+        setShowLoading(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [userLocation]);
+
   return (
     <View style={styles.container}>
+      {showLoading && <LoadingScreen />}
+      
       {/* Map is at the bottom of the stack */}
       <MapComponent />
 
@@ -44,6 +62,9 @@ export default function HomeScreen() {
       {/* Interactive UI */}
       <BottomCard />
 
+      {/* Monitoring HUD Overlay (centered) */}
+      <MonitoringHUD />
+
       {/* Highest Priority Overlay: Alarm Screen */}
       <AlarmScreen />
     </View>
@@ -65,7 +86,7 @@ const styles = StyleSheet.create({
   },
   locateButton: {
     position: "absolute",
-    bottom: "58%", // Position it just above the expanded snap point
+    bottom: "58%",
     right: 20,
     backgroundColor: "rgba(15, 23, 42, 0.9)",
     padding: 12,

@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { useRikoStore, haversineDistance } from '../store/useStore';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -7,102 +8,129 @@ import { Platform } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 
 const LOCATION_TASK_NAME = 'background-location-task';
-const isExpoGo = Constants.appOwnership === 'expo' || Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const IS_EXPO_GO = Constants.appOwnership === 'expo' || Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// Notification ID for tracking updates
+const MONITORING_NOTIFICATION_ID = 'riko-monitoring';
 
 export function useLocationTracking() {
-  const setUserLocation = useRikoStore((state) => state.setUserLocation);
+  const { setUserLocation, isArmed, destination, destinationName, config } = useRikoStore();
   
-  // Prevent screen from dimming while app is in foreground
   useKeepAwake();
 
   useEffect(() => {
     let foregroundSubscription: Location.LocationSubscription | null = null;
 
-    const startTracking = async () => {
-      try {
-        const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
-        if (foregroundStatus !== 'granted') return;
+    const setupTracking = async () => {
+      const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+      if (foregroundStatus !== 'granted') return;
 
-        foregroundSubscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.BestForNavigation,
-            distanceInterval: 1,
-            timeInterval: 500,
-          },
-          (location) => {
-            setUserLocation({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            });
-          }
-        );
+      // Always track in foreground for the map and circular HUD
+      foregroundSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 0,
+          timeInterval: 1000,
+        },
+        (location) => {
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        }
+      );
 
-        if (isExpoGo && Platform.OS === 'android') return;
+      // Handle Background Logic based on isArmed
+      if (isArmed && destination) {
+        if (IS_EXPO_GO && Platform.OS === 'android') return;
 
         const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
         if (backgroundStatus === 'granted') {
           await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
             accuracy: Location.Accuracy.High,
-            distanceInterval: 10,
-            deferredUpdatesInterval: 5000,
-            
-            // CRITICAL: Ensure tracking stays alive when app is killed or phone is locked
+            distanceInterval: 1,
+            deferredUpdatesInterval: 1000,
             showsBackgroundLocationIndicator: true,
-            
             foregroundService: {
-              notificationTitle: 'Rikô Active',
-              notificationBody: 'Proximity alarm is monitoring your destination...',
+              notificationTitle: 'Rikô Tracking Active',
+              notificationBody: `Monitoring distance to ${destinationName}...`,
               notificationColor: '#FE6615',
             },
           });
         }
-      } catch (error) {}
-    };
-
-    startTracking();
-
-    return () => {
-      if (foregroundSubscription) {
-        foregroundSubscription.remove();
+      } else {
+        // Stop background task if disarmed
+        const isRunning = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
+        if (isRunning) {
+          await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+          await Notifications.dismissNotificationAsync(MONITORING_NOTIFICATION_ID).catch(() => {});
+        }
       }
     };
-  }, [setUserLocation]);
+
+    setupTracking();
+
+    return () => {
+      foregroundSubscription?.remove();
+    };
+  }, [isArmed, destination]);
 }
 
 // Background Task Definition
 try {
   TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
-    if (error) return;
-    if (data) {
-      const { locations } = data;
-      const location = locations[0];
-      if (location) {
-        const state = useRikoStore.getState();
-        const currentLoc = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
+    if (error || !data) return;
+    
+    const { locations } = data;
+    const location = locations[0];
+    if (!location) return;
 
-        if (state.destination && state.isArmed && !state.isAlarmFiring) {
-          const dist = haversineDistance(currentLoc, state.destination);
-          if (dist <= state.config.radius) {
-            useRikoStore.getState().setUserLocation(currentLoc);
-            
-            if (!(isExpoGo && Platform.OS === 'android')) {
-              try {
-                const Notifications = require('expo-notifications');
-                await Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: "Arrived near destination!",
-                    body: `You are within ${state.config.radius}m of ${state.destinationName}.`,
-                    sound: true,
-                    priority: Notifications.AndroidNotificationPriority.HIGH,
-                  },
-                  trigger: null,
-                });
-              } catch (e) {}
-            }
-          }
+    const state = useRikoStore.getState();
+    const currentLoc = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+    };
+
+    // Update in-app state
+    state.setUserLocation(currentLoc);
+
+    if (state.destination && state.isArmed) {
+      const dist = haversineDistance(currentLoc, state.destination);
+      const formattedDist = dist > 1000 
+        ? `${(dist / 1000).toFixed(1)}km` 
+        : `${Math.round(dist)}m`;
+
+      // Update the "Approach" notification
+      if (!state.isAlarmFiring) {
+        await Notifications.setNotificationHandler({
+            handleNotification: async () => ({
+              shouldShowAlert: true,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+            }),
+        });
+
+        await Notifications.scheduleNotificationAsync({
+          identifier: MONITORING_NOTIFICATION_ID,
+          content: {
+            title: `Rikô: ${formattedDist} left`,
+            body: `Approaching ${state.destinationName}`,
+            sticky: true,
+          },
+          trigger: null,
+        });
+
+        // Trigger alarm if within radius
+        if (dist <= state.config.radius) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: "Arrived near destination!",
+              body: `You are within ${state.config.radius}m of ${state.destinationName}.`,
+              sound: true,
+              priority: Notifications.AndroidNotificationPriority.HIGH,
+            },
+            trigger: null,
+          });
         }
       }
     }

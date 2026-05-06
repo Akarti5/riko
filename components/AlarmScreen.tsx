@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import Animated, { 
   useSharedValue, 
@@ -14,27 +14,34 @@ import { Bell, XCircle } from 'lucide-react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const DEFAULT_ALARM_URI = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
 
 export default function AlarmScreen() {
   const { isAlarmFiring, destinationName, dismissAlarm, config } = useRikoStore();
   
+  // Keep player alive to avoid loading latency
   const player = useAudioPlayer(config.soundUri || DEFAULT_ALARM_URI);
   const status = useAudioPlayerStatus(player);
 
   const pulse = useSharedValue(0);
+  const screenOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (isAlarmFiring) {
+      // Instant visual transition
+      screenOpacity.value = withTiming(1, { duration: 300 });
+      
       pulse.value = withRepeat(
         withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }),
         -1,
         false
       );
       
+      // INSTANT PLAYBACK
       player.loop = true;
+      player.seekTo(0);
       player.play();
 
       const interval = setInterval(() => {
@@ -43,13 +50,21 @@ export default function AlarmScreen() {
       
       return () => {
         player.pause();
+        player.seekTo(0);
         clearInterval(interval);
       };
     } else {
+      screenOpacity.value = withTiming(0, { duration: 300 });
       pulse.value = 0;
       player.pause();
+      player.seekTo(0);
     }
   }, [isAlarmFiring, player]);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: screenOpacity.value,
+    transform: [{ translateY: interpolate(screenOpacity.value, [0, 1], [height, 0]) }],
+  }));
 
   const pulseStyle = useAnimatedStyle(() => {
     return {
@@ -58,14 +73,16 @@ export default function AlarmScreen() {
     };
   });
 
-  if (!isAlarmFiring) return null;
-
+  // Stay mounted for zero-latency trigger, but use pointerEvents to allow map interaction when hidden
   return (
-    <View style={styles.container}>
+    <Animated.View 
+      style={[styles.container, containerStyle]} 
+      pointerEvents={isAlarmFiring ? 'auto' : 'none'}
+    >
       <View style={styles.content}>
         {/* Animated Ripples */}
         <Animated.View style={[styles.ripple, pulseStyle]} />
-        <Animated.View style={[styles.ripple, pulseStyle, { animationDelay: '0.7s' as any }]} />
+        <Animated.View style={[styles.ripple, pulseStyle]} />
 
         <View style={styles.iconCircle}>
           <Bell size={64} color="#000" />
@@ -83,7 +100,7 @@ export default function AlarmScreen() {
           <Text style={styles.dismissText}>DISMISS ALARM</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

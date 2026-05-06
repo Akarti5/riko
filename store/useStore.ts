@@ -34,19 +34,25 @@ interface RikoState {
   triggerCenter: () => void;
 }
 
-export const haversineDistance = (p1: Location, p2: Location): number => {
-  const R = 6371e3; // meters
-  const phi1 = (p1.latitude * Math.PI) / 180;
-  const phi2 = (p2.latitude * Math.PI) / 180;
-  const dphi = ((p2.latitude - p1.latitude) * Math.PI) / 180;
-  const dlambda = ((p2.longitude - p1.longitude) * Math.PI) / 180;
+/**
+ * HIGH-PERFORMANCE DISTANCE CALCULATION
+ * Optimized for 0.1s (10Hz) updates on mobile hardware.
+ * Uses Equirectangular approximation which is significantly faster than Haversine
+ * for local distances (under 100km) as it avoids multiple sin/cos/atan2 calls.
+ */
+const DEG_TO_RAD = Math.PI / 180;
+const EARTH_RADIUS = 6371000; // in meters
 
-  const a =
-    Math.sin(dphi / 2) * Math.sin(dphi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(dlambda / 2) * Math.sin(dlambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+export const calculateDistance = (p1: Location, p2: Location): number => {
+  const lon1 = p1.longitude * DEG_TO_RAD;
+  const lon2 = p2.longitude * DEG_TO_RAD;
+  const lat1 = p1.latitude * DEG_TO_RAD;
+  const lat2 = p2.latitude * DEG_TO_RAD;
 
-  return R * c;
+  const x = (lon2 - lon1) * Math.cos((lat1 + lat2) / 2);
+  const y = lat2 - lat1;
+  
+  return Math.sqrt(x * x + y * y) * EARTH_RADIUS;
 };
 
 export const useRikoStore = create<RikoState>()(
@@ -66,24 +72,35 @@ export const useRikoStore = create<RikoState>()(
       },
 
       setUserLocation: (loc) => {
-        set({ userLocation: loc });
         const { destination, isArmed, config, isAlarmFiring } = get();
+        
+        let newDistance = null;
+        let firingState = isAlarmFiring;
+
         if (destination) {
-          const dist = haversineDistance(loc, destination);
-          set({ distance: dist });
-          
-          if (isArmed && !isAlarmFiring && dist <= config.radius) {
-            set({ isAlarmFiring: true });
+          newDistance = calculateDistance(loc, destination);
+          if (isArmed && !isAlarmFiring && newDistance <= config.radius) {
+            firingState = true;
           }
         }
+
+        // BATCH UPDATE: Single state change for better performance at 10Hz
+        set({ 
+          userLocation: loc, 
+          distance: newDistance,
+          isAlarmFiring: firingState 
+        });
       },
 
       setDestination: (loc, name) => {
-        set({ destination: loc, destinationName: name || (loc ? 'Unnamed Location' : null) });
         const { userLocation } = get();
-        if (userLocation) {
-          set({ distance: haversineDistance(userLocation, loc) });
-        }
+        const dist = userLocation ? calculateDistance(userLocation, loc) : null;
+        
+        set({ 
+          destination: loc, 
+          destinationName: name || (loc ? 'Unnamed Location' : null),
+          distance: dist
+        });
       },
 
       setRadius: (radius) => set((state) => ({ config: { ...state.config, radius } })),

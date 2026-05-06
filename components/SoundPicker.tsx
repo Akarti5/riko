@@ -130,7 +130,7 @@ export default function SoundPicker({ isVisible, onClose }: SoundPickerProps) {
                       <Play color="#FFF" size={16} fill="#FFF" />
                     )}
                   </TouchableOpacity>
-                  <Check color={Colors.dark.orange} size={20} />
+                  {/* <Check color={Colors.dark.orange} size={20} /> */}
                 </View>
               </View>
             )}

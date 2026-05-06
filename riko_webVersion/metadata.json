@@ -1,6 +1,0 @@
-{
-  "name": "RIKÔ - Destination Alarm",
-  "description": "A smart transit assistant that triggers an alarm when you enter a geofenced radius around your destination.",
-  "requestFramePermissions": ["geolocation"],
-  "majorCapabilities": []
-}

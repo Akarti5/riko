@@ -41,6 +41,11 @@ export default function DestinationHeader() {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&limit=8`,
+        {
+          headers: {
+            "User-Agent": "RikoApp/1.0 (Mobile; Android/iOS)",
+          },
+        },
       );
       const data = await response.json();
       setSearchResults(data);

@@ -1,5 +1,5 @@
-import { Search, X, MapPin } from "lucide-react-native";
-import React, { useState, useRef, useEffect } from "react";
+import { MapPin, Search, X } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -25,9 +25,23 @@ export default function DestinationHeader() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  
+
   const searchTimeoutRef = useRef<any>(null);
   const MAPTILER_KEY = "SHKJsJP0nENFEUm6CDSX";
+
+  // Remove consecutive duplicate words from a string (case-insensitive)
+  const deduplicateName = (name: string): string => {
+    const words = name.split(/\s+/);
+    const deduplicated: string[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+      if (i === 0 || words[i].toLowerCase() !== words[i - 1].toLowerCase()) {
+        deduplicated.push(words[i]);
+      }
+    }
+
+    return deduplicated.join(" ");
+  };
 
   const performSearch = async (text: string) => {
     if (text.length < 2) {
@@ -42,26 +56,34 @@ export default function DestinationHeader() {
 
     const state = useRikoStore.getState();
     const userLoc = state.userLocation;
-    
+
     // Proximity bias using user location
-    const proximity = userLoc ? `&proximity=${userLoc.longitude},${userLoc.latitude}` : "";
+    const proximity = userLoc
+      ? `&proximity=${userLoc.longitude},${userLoc.latitude}`
+      : "";
 
     try {
       // SWAPPING TO MAPTILER GEOCODING (Reliable, No 429 issues with current key)
       const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(text)}.json?key=${MAPTILER_KEY}${proximity}&limit=10`;
-      
+
       const response = await fetch(url);
       if (!response.ok) throw new Error("MapTiler API error");
 
       const data = await response.json();
-      
+
       // MapTiler returns Mapbox-style GeoJSON Features
-      const results: SearchResult[] = (data.features || []).map((f: any) => ({
-        latitude: f.center[1],
-        longitude: f.center[0],
-        name: f.text || f.place_name.split(",")[0],
-        display_name: f.place_name,
-      }));
+      const results: SearchResult[] = (data.features || []).map((f: any) => {
+        // Extract primary name - use place_name first (full name), then text (short name)
+        let primaryName = (f.place_name?.split(",")[0] || f.text || "").trim();
+        // Remove consecutive duplicate words
+        primaryName = deduplicateName(primaryName);
+        return {
+          latitude: f.center[1],
+          longitude: f.center[0],
+          name: primaryName,
+          display_name: f.place_name,
+        };
+      });
 
       setSearchResults(results);
     } catch (error) {
@@ -91,11 +113,14 @@ export default function DestinationHeader() {
   };
 
   const handleSelectLocation = (result: SearchResult) => {
-    setDestination({
-      latitude: result.latitude,
-      longitude: result.longitude,
-    }, result.name);
-    
+    setDestination(
+      {
+        latitude: result.latitude,
+        longitude: result.longitude,
+      },
+      result.name,
+    );
+
     setSearchText("");
     setShowResults(false);
     setSearchResults([]);
@@ -126,7 +151,9 @@ export default function DestinationHeader() {
           />
           <TextInput
             style={styles.input}
-            placeholder={destination ? "Change destination..." : "Search destination..."}
+            placeholder={
+              destination ? "Change destination..." : "Search destination..."
+            }
             placeholderTextColor={Colors.dark.muted}
             value={searchText}
             onChangeText={handleSearchInputChange}
@@ -153,7 +180,7 @@ export default function DestinationHeader() {
                 onPress={() => handleSelectLocation(item)}
               >
                 <View style={styles.resultIconContainer}>
-                   <MapPin size={14} color={Colors.dark.orange} />
+                  <MapPin size={14} color={Colors.dark.orange} />
                 </View>
                 <View style={styles.resultTextContainer}>
                   <Text style={styles.resultName} numberOfLines={1}>
@@ -176,7 +203,10 @@ export default function DestinationHeader() {
         </View>
       )}
 
-      {showResults && !isSearching && searchResults.length === 0 && searchText.length >= 2 && (
+      {showResults &&
+        !isSearching &&
+        searchResults.length === 0 &&
+        searchText.length >= 2 && (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No results found</Text>
           </View>

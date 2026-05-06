@@ -70,6 +70,41 @@ export default function MapComponent() {
     }
   }, [destination]);
 
+  // Remove consecutive duplicate words from a string (case-insensitive)
+  const deduplicateName = (name: string): string => {
+    const words = name.split(/\s+/);
+    const deduplicated: string[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+      if (i === 0 || words[i].toLowerCase() !== words[i - 1].toLowerCase()) {
+        deduplicated.push(words[i]);
+      }
+    }
+
+    return deduplicated.join(" ");
+  };
+
+  // Calculate distance between two coordinates in meters
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number => {
+    const R = 6371000; // Earth's radius in meters
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   const onMapLongPress = (e: any) => {
     if (!isArmed) {
       const coord = e.nativeEvent.coordinate;
@@ -77,18 +112,56 @@ export default function MapComponent() {
       // Set temporary state while loading
       setDestination(coord, "Searching...");
 
-      // Use the confirmed working key from DestinationHeader
-
       const url = `https://api.maptiler.com/geocoding/${coord.longitude},${coord.latitude}.json?key=SHKJsJP0nENFEUm6CDSX`;
 
       fetch(url)
         .then((res) => res.json())
         .then((data) => {
-          const feature = data.features?.[0];
-          if (feature) {
-            // Get the most specific name (e.g. "Soanierana")
-            const name = feature.text || feature.place_name.split(",")[0];
-            setDestination(coord, name);
+          const features = data.features || [];
+
+          // Filter out roads and other non-place features
+          const validPlaces = features.filter((f: any) => {
+            const name = (
+              f.text ||
+              f.place_name?.split(",")[0] ||
+              ""
+            ).toLowerCase();
+            const isRoad =
+              name.startsWith("route ") ||
+              name.startsWith("lalana ") ||
+              name.startsWith("rue ");
+            return !isRoad;
+          });
+
+          // Sort by distance to pinned coordinate and pick the closest
+          const sortedByDistance = validPlaces.sort((a: any, b: any) => {
+            const distA = calculateDistance(
+              coord.latitude,
+              coord.longitude,
+              a.center[1],
+              a.center[0],
+            );
+            const distB = calculateDistance(
+              coord.latitude,
+              coord.longitude,
+              b.center[1],
+              b.center[0],
+            );
+            return distA - distB;
+          });
+
+          const closestPlace = sortedByDistance[0] || features[0];
+
+          if (closestPlace) {
+            // Extract name the same way as search results - prioritize place_name
+            let name = (
+              closestPlace.place_name?.split(",")[0] ||
+              closestPlace.text ||
+              ""
+            ).trim();
+            // Remove consecutive duplicate words
+            name = deduplicateName(name);
+            setDestination(coord, name || "Pinned Location");
           } else {
             setDestination(coord, "Pinned Location");
           }

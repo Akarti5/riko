@@ -51,22 +51,45 @@ export default function MapComponent() {
     }
   }, [userLocation]);
 
+  // Auto-fit both markers when destination is set
+  useEffect(() => {
+    if (destination && userLocation && mapRef.current) {
+      mapRef.current.fitToCoordinates(
+        [
+          { latitude: userLocation.latitude, longitude: userLocation.longitude },
+          { latitude: destination.latitude, longitude: destination.longitude }
+        ],
+        {
+          edgePadding: { top: 180, right: 80, bottom: 180, left: 80 },
+          animated: true,
+        }
+      );
+    }
+  }, [destination]);
+
   const onMapLongPress = (e: any) => {
     if (!isArmed) {
       const coord = e.nativeEvent.coordinate;
-      setDestination(coord);
+      
+      // Set temporary state while loading
+      setDestination(coord, "Searching...");
 
-      fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coord.latitude}&lon=${coord.longitude}&addressdetails=1`,
-        { headers: { 'User-Agent': 'RikoApp/1.0' } }
-      )
+      const url = `https://api.maptiler.com/geocoding/${coord.longitude},${coord.latitude}.json?key=SHKJsJP0nENFEUm6CDSX`;
+      
+      fetch(url)
         .then((res) => res.json())
         .then((data) => {
-          const addr = data.address || {};
-          const name = addr.amenity || addr.shop || addr.building || data.display_name?.split(",")[0] || "Selected Location";
-          setDestination(coord, name);
+          const feature = data.features?.[0];
+          if (feature) {
+            const name = feature.text || feature.place_name.split(",")[0];
+            setDestination(coord, name);
+          } else {
+            setDestination(coord, "Selected Location");
+          }
         })
-        .catch(() => { });
+        .catch(() => {
+          setDestination(coord, "Selected Location");
+        });
     }
   };
 

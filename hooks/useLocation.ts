@@ -30,7 +30,7 @@ export function useLocationTracking() {
         {
           accuracy: Location.Accuracy.BestForNavigation,
           distanceInterval: 0,
-          timeInterval: 1000,
+          timeInterval: 100, // 0.1s ultra-high frequency ping
         },
         (location) => {
           setUserLocation({
@@ -47,9 +47,9 @@ export function useLocationTracking() {
         const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
         if (backgroundStatus === 'granted') {
           await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-            accuracy: Location.Accuracy.High,
-            distanceInterval: 1,
-            deferredUpdatesInterval: 1000,
+            accuracy: Location.Accuracy.BestForNavigation,
+            distanceInterval: 0,
+            deferredUpdatesInterval: 100,
             showsBackgroundLocationIndicator: true,
             foregroundService: {
               notificationTitle: 'Rikô Tracking Active',
@@ -103,11 +103,13 @@ try {
       // Update the "Approach" notification
       if (!state.isAlarmFiring) {
         await Notifications.setNotificationHandler({
-            handleNotification: async () => ({
-              shouldShowAlert: true,
-              shouldPlaySound: false,
-              shouldSetBadge: false,
-            }),
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
         });
 
         await Notifications.scheduleNotificationAsync({

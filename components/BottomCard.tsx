@@ -3,16 +3,18 @@ import Slider from "@react-native-community/slider";
 import {
   BellRing,
   ChevronDown,
+  ChevronUp,
   LocateFixed,
   MapPin,
 } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Animated,
 } from "react-native";
 import { Colors } from "../constants/theme";
 import { useRikoStore } from "../store/useStore";
@@ -31,8 +33,28 @@ export default function BottomCard() {
     triggerCenter,
   } = useRikoStore();
   const [isSoundPickerVisible, setIsSoundPickerVisible] = useState(false);
+  
+  // Arrow animation
+  const arrowAnim = React.useRef(new Animated.Value(0)).current;
 
-  const snapPoints = useMemo(() => ["18%", "55%"], []);
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(arrowAnim, {
+          toValue: -5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(arrowAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const snapPoints = useMemo(() => ["13%", "55%"], []);
 
   const handleToggleAlarm = () => {
     if (isArmed) {
@@ -44,9 +66,18 @@ export default function BottomCard() {
 
   const formatDistance = (m: number | null) => {
     if (m === null) return "--";
-    if (m >= 1000) return `${(m / 1000).toFixed(1)} km`;
-    return `${Math.round(m)} m`;
+    if (m >= 1000) return `${(m / 1000).toFixed(1)}km`;
+    return `${Math.round(m)}m`;
   };
+
+  // Custom Handle with animated arrow
+  const CustomHandle = () => (
+    <View style={styles.handleContainer}>
+      <Animated.View style={{ transform: [{ translateY: arrowAnim }] }}>
+        <ChevronUp size={20} color={Colors.dark.orange} strokeWidth={3} />
+      </Animated.View>
+    </View>
+  );
 
   return (
     <>
@@ -58,12 +89,12 @@ export default function BottomCard() {
         <BottomSheet
           snapPoints={snapPoints}
           backgroundStyle={styles.bottomSheetBackground}
-          handleIndicatorStyle={styles.handleIndicator}
+          handleComponent={CustomHandle}
           activeOffsetX={[-999, 999]}
           activeOffsetY={[-5, 5]}
         >
           <BottomSheetView style={styles.container}>
-            {/* Main Info Row (Matching the big numbers on web) */}
+            {/* Main Info Row (Always Visible in Collapsed State) */}
             <View style={styles.mainInfoRow}>
               <View style={styles.destinationBox}>
                 <Text style={styles.destinationTitle} numberOfLines={1}>
@@ -73,7 +104,7 @@ export default function BottomCard() {
                 <View style={styles.statusRow}>
                   <MapPin size={12} color={Colors.dark.orange} />
                   <Text style={styles.statusText}>
-                    {isArmed ? "Tracking..." : "Ready To Track"}
+                    {isArmed ? "TRACKING..." : "READY TO TRACK"}
                   </Text>
                 </View>
               </View>
@@ -86,7 +117,7 @@ export default function BottomCard() {
               </View>
             </View>
 
-            {/* Slider Section */}
+            {/* Hidden Content in Collapsed State (Bottom Sheet takes care of this via clipping) */}
             <View style={styles.divider} />
 
             <View style={styles.section}>
@@ -99,7 +130,6 @@ export default function BottomCard() {
                 </Text>
               </View>
 
-              {/* Wrapper to help with gesture conflict */}
               <View onStartShouldSetResponder={() => true}>
                 <Slider
                   style={styles.slider}
@@ -120,7 +150,6 @@ export default function BottomCard() {
               </View>
             </View>
 
-            {/* Sound Selector */}
             <TouchableOpacity
               style={styles.soundCard}
               onPress={() => !isArmed && setIsSoundPickerVisible(true)}
@@ -136,7 +165,6 @@ export default function BottomCard() {
               {!isArmed && <ChevronDown size={20} color={Colors.dark.muted} />}
             </TouchableOpacity>
 
-            {/* Main Action Button */}
             <TouchableOpacity
               style={[
                 styles.actionButton,
@@ -169,31 +197,35 @@ export default function BottomCard() {
 
 const styles = StyleSheet.create({
   bottomSheetBackground: {
-    backgroundColor: "#0F172A", // Deeper blue-black background from web
+    backgroundColor: "#0F172A",
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
   },
-  handleIndicator: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    width: 40,
+  handleContainer: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 2,
   },
   container: {
     flex: 1,
-    padding: 24,
-    paddingTop: 12,
+    paddingHorizontal: 24,
+    paddingTop: 4,
   },
   mainInfoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+    height: 60, // Fixed height for first line consistency
   },
   destinationBox: {
     flex: 1,
     paddingRight: 10,
   },
   destinationTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "900",
     color: "#FFF",
     letterSpacing: -0.5,
@@ -201,27 +233,27 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 2,
   },
   statusText: {
-    fontSize: 12,
-    color: Colors.dark.muted,
+    fontSize: 9,
+    color: Colors.dark.orange,
     marginLeft: 6,
-    fontWeight: "600",
-    letterSpacing: 0.5,
+    fontWeight: "900",
+    letterSpacing: 2,
   },
   distanceBox: {
     alignItems: "flex-end",
     minWidth: 80,
   },
   distanceValue: {
-    fontSize: 28,
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace", // Monospaced feel for numbers
+    fontSize: 24,
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
     fontWeight: "900",
-    color: Colors.dark.orange,
+    color: "#FFF",
   },
   distanceLabel: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "900",
     color: Colors.dark.muted,
     letterSpacing: 2,
@@ -233,7 +265,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -301,19 +333,14 @@ const styles = StyleSheet.create({
     color: "#FFF",
   },
   actionButton: {
-    height: 64,
+    height: 56,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: "auto",
+    marginTop: 10,
   },
   armButton: {
     backgroundColor: Colors.dark.orange,
-    shadowColor: Colors.dark.orange,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 8,
   },
   disarmButton: {
     backgroundColor: "#1E293B",
@@ -321,7 +348,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   actionButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "900",
     letterSpacing: 2,
   },
@@ -334,7 +361,7 @@ const styles = StyleSheet.create({
   },
   locateButton: {
     position: "absolute",
-    bottom: "58%", // Just above the sheet
+    bottom: "58%",
     right: 20,
     backgroundColor: "rgba(15, 23, 42, 0.9)",
     padding: 12,

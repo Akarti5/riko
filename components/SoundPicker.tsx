@@ -8,8 +8,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 const SYSTEM_SOUNDS = [
   { id: 'default', name: 'System Default', desc: 'Standard device alert' },
-  { id: 'radar', name: 'Radar Pulse', desc: 'Sharp digital tone' },
-  { id: 'beacon', name: 'Deep Beacon', desc: 'Low resonance alert' },
+  // { id: 'radar', name: 'Radar Pulse', desc: 'Sharp digital tone' },
+  // { id: 'beacon', name: 'Deep Beacon', desc: 'Low resonance alert' },
 ];
 
 interface SoundPickerProps {

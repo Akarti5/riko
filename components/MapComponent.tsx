@@ -74,7 +74,7 @@ export default function MapComponent() {
       // Set temporary state while loading
       setDestination(coord, "Searching...");
 
-      const url = `https://api.maptiler.com/geocoding/${coord.longitude},${coord.latitude}.json?key=SHKJsJP0nENFEUm6CDSX`;
+      const url = `https://api.maptiler.com/geocoding/${coord.longitude},${coord.latitude}.json?key=${process.env.MAP_API_KEY}`;
       
       fetch(url)
         .then((res) => res.json())

@@ -1,98 +1,101 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AlarmScreen from '@/components/riko/alarm-screen';
+import BottomCard from '@/components/riko/bottom-card';
+import MonitoringHUD from '@/components/riko/monitoring-hud';
+import RikoMap from '@/components/riko/riko-map';
+import SoundPicker from '@/components/riko/sound-picker';
+import { useRikoLocationTracking } from '@/hooks/use-riko-location';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const insets = useSafeAreaInsets();
+  const [soundPickerVisible, setSoundPickerVisible] = useState(false);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useRikoLocationTracking();
+
+  return (
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 8) }]}>
+      <View style={styles.constellation} />
+      <View style={styles.mapWrap}>
+        <RikoMap />
+      </View>
+
+      <View style={styles.topOverlay} pointerEvents="none">
+        <View style={styles.brandCard}>
+          <View style={styles.brandBadge}>
+            <Text style={styles.brandBadgeText}>R</Text>
+          </View>
+          <View>
+            <Text style={styles.brandMini}>RIKO</Text>
+            <Text style={styles.brandMain}>Transit Hub</Text>
+          </View>
+        </View>
+      </View>
+
+      <MonitoringHUD />
+      <BottomCard onOpenSoundPicker={() => setSoundPickerVisible(true)} />
+      <AlarmScreen />
+      <SoundPicker visible={soundPickerVisible} onClose={() => setSoundPickerVisible(false)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#050b18',
+  },
+  mapWrap: {
+    flex: 1,
+  },
+  constellation: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.15,
+    zIndex: 1,
+    backgroundColor: 'transparent',
+  },
+  topOverlay: {
+    position: 'absolute',
+    top: 20,
+    left: 16,
+    right: 16,
+    zIndex: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  brandCard: {
+    backgroundColor: 'rgba(13,27,62,0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  brandBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#7986cb',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  brandBadgeText: {
+    color: '#050b18',
+    fontWeight: '900',
+  },
+  brandMini: {
+    color: '#7986cb',
+    fontSize: 10,
+    letterSpacing: 1.7,
+    fontWeight: '800',
+  },
+  brandMain: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

@@ -1,0 +1,230 @@
+import React, { useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
+import { useRikoStore } from '../store/useStore';
+import { Colors } from '../constants/theme';
+import { X, Check, Volume2, Plus } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+
+const SYSTEM_SOUNDS = [
+  { id: 'default', name: 'System Default', desc: 'Standard device alert' },
+  { id: 'radar', name: 'Radar Pulse', desc: 'Sharp digital tone' },
+  { id: 'beacon', name: 'Deep Beacon', desc: 'Low resonance alert' },
+];
+
+interface SoundPickerProps {
+  isVisible: boolean;
+  onClose: () => void;
+}
+
+export default function SoundPicker({ isVisible, onClose }: SoundPickerProps) {
+  const { config, setSound } = useRikoStore();
+  const [currentUri, setCurrentUri] = React.useState<string | null>(null);
+  const player = useAudioPlayer(currentUri);
+  const status = useAudioPlayerStatus(player);
+
+  const playPreview = async (uri: string | null) => {
+    if (!uri) return;
+    setCurrentUri(uri);
+    player.play();
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSound(asset.uri, asset.name);
+      }
+    } catch (err) {
+      console.error('Error picking document:', err);
+    }
+  };
+
+  return (
+    <Modal
+      visible={isVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Select Sound</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <X color={Colors.dark.muted} size={24} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+            <Text style={styles.sectionTitle}>SYSTEM SOUNDS</Text>
+            {SYSTEM_SOUNDS.map((sound) => (
+              <TouchableOpacity
+                key={sound.id}
+                style={[
+                  styles.soundItem,
+                  config.soundUri === null && config.soundName === sound.name && styles.activeItem
+                ]}
+                onPress={() => setSound(null, sound.name)}
+              >
+                <View style={styles.soundInfo}>
+                  <View style={styles.iconContainer}>
+                    <Volume2 color={Colors.dark.orange} size={20} />
+                  </View>
+                  <View>
+                    <Text style={styles.soundName}>{sound.name}</Text>
+                    <Text style={styles.soundDesc}>{sound.desc}</Text>
+                  </View>
+                </View>
+                {(config.soundUri === null && config.soundName === sound.name) && (
+                  <Check color={Colors.dark.orange} size={20} />
+                )}
+              </TouchableOpacity>
+            ))}
+
+            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>CUSTOM SOUND</Text>
+            {config.soundUri && (
+              <TouchableOpacity
+                style={[styles.soundItem, styles.activeItem]}
+                onPress={() => playPreview(config.soundUri)}
+              >
+                <View style={styles.soundInfo}>
+                  <View style={styles.iconContainer}>
+                    <Volume2 color={Colors.dark.orange} size={20} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.soundName} numberOfLines={1}>{config.soundName}</Text>
+                    <Text style={styles.soundDesc}>Custom user sound</Text>
+                  </View>
+                </View>
+                <Check color={Colors.dark.orange} size={20} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.addButton} onPress={pickDocument}>
+              <Plus color={Colors.dark.orange} size={20} />
+              <Text style={styles.addButtonText}>Choose from device</Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          <TouchableOpacity style={styles.confirmButton} onPress={onClose}>
+            <Text style={styles.confirmButtonText}>CONFIRM</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  container: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    height: '70%',
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: -0.5,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  sectionTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: Colors.dark.muted,
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
+  list: {
+    flex: 1,
+  },
+  soundItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  activeItem: {
+    borderColor: Colors.dark.orange,
+    backgroundColor: 'rgba(254, 102, 21, 0.05)',
+  },
+  soundInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(254, 102, 21, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  soundName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  soundDesc: {
+    fontSize: 12,
+    color: Colors.dark.muted,
+    marginTop: 2,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.dark.orange,
+    marginTop: 8,
+  },
+  addButtonText: {
+    color: Colors.dark.orange,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  confirmButton: {
+    backgroundColor: Colors.dark.orange,
+    padding: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  confirmButtonText: {
+    color: '#000',
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+});

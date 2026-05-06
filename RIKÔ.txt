@@ -1,0 +1,179 @@
+{
+  "project": {
+    "name": "RIKÔ - Destination Alarm Transit Assistant",
+    "type": "Cross-Platform Mobile Application",
+    "framework": "React Native with Expo (Managed → Bare Workflow)",
+    "language": "TypeScript (strict mode)"
+  },
+
+  "purpose": "Build a mobile app for travelers who fall asleep during transit. The app tracks the user's real-time GPS location and triggers a loud, reliable alarm when they enter a geofenced radius around a destination they selected on a map — functioning as a destination-based alarm clock.",
+
+  "design_system": {
+    "theme": "Dark mode only — deep midnight aesthetic, no light theme",
+    "color_palette": {
+      "background_base": "#050b18",
+      "background_surface": "#0d1b3e",
+      "accent_primary": "#7986cb",
+      "accent_secondary": "#80cbc4",
+      "text_primary": "#e8eaf6",
+      "text_muted": "#90a4ae"
+    },
+    "typography": {
+      "display_font": "Syne (weights 700–800) — used for headings, labels, section titles",
+      "body_font": "DM Sans (weights 300–500) — used for body text, descriptions, UI copy",
+      "source": "Google Fonts"
+    },
+    "visual_style": [
+      "No bright white surfaces anywhere — all cards and modals use dark translucent backgrounds",
+      "Glowing icon halos with low opacity (e.g. box-shadow pulse on beacon marker)",
+      "Constellation dot texture on primary screens (subtle SVG dot pattern overlay)",
+      "Indigo/slate accent tones throughout with teal highlights for active states",
+      "All map overlays maintain the dark palette — use a dark map tile style"
+    ]
+  },
+
+  "screens": {
+    "home_map_screen": {
+      "description": "Full-bleed dark map fills the screen. A floating bottom card slides up for destination and alarm configuration.",
+      "map_features": [
+        "Dark-styled map tiles via react-native-maps custom style JSON",
+        "User location shown as animated pulsing beacon (indigo glow rings expanding outward)",
+        "Tap anywhere on map to place a destination pin (custom icon, glowing amber marker)",
+        "A translucent circle overlay visualizes the geofence radius around the pin",
+        "Radius is adjustable by the user (200m to 2km) via a slider in the bottom card"
+      ],
+      "bottom_card": [
+        "Shows selected destination name (reverse geocoded) or 'Tap map to set destination'",
+        "Live distance counter to pin in km or m, updating in real time",
+        "Alarm sound selector button — opens sound picker bottom sheet",
+        "Radius slider with live visual feedback on map",
+        "Large glowing 'Arm Alarm' CTA button in indigo"
+      ]
+    },
+    "active_monitoring_screen": {
+      "description": "Triggered after tapping 'Arm Alarm'. Dims non-essential UI, enters focused tracking mode.",
+      "features": [
+        "Map stays visible with live position updates",
+        "Large centered distance readout with animated progress arc shrinking as user approaches",
+        "Estimated time of arrival (ETA) shown if speed can be calculated from GPS delta",
+        "Subtle pulsing border around screen edge to indicate alarm is armed",
+        "'Disarm' button always accessible"
+      ]
+    },
+    "alarm_firing_screen": {
+      "description": "Full-screen takeover triggered on geofence entry.",
+      "features": [
+        "Animated indigo glow pulse fills the screen from center",
+        "Large bold text: 'You have arrived' with destination name below",
+        "Dismiss button (requires intentional tap-and-hold for 2 seconds to prevent accidental dismissal)",
+        "10-second snooze option that re-arms alarm 300m further",
+        "Screen wakes from lock state if platform permits"
+      ]
+    },
+    "sound_picker_sheet": {
+      "description": "A @gorhom/bottom-sheet panel listing available alarm sounds.",
+      "features": [
+        "At least 5 built-in alarm tones with names and preview play button",
+        "Currently selected sound highlighted with indigo tint",
+        "Tap to preview, tap again to select",
+        "Smooth open/close animation via Reanimated 3"
+      ]
+    }
+  },
+
+  "core_technical_features": {
+    "location_tracking": {
+      "library": "expo-location",
+      "method": "watchPositionAsync",
+      "accuracy": "Balanced or High accuracy mode",
+      "update_interval_ms": 2000,
+      "notes": "Acknowledge inherent GPS delay of 2–5 seconds. Do not over-correct for this."
+    },
+    "distance_calculation": {
+      "formula": "Haversine formula",
+      "updates": "Recalculated on every GPS position event",
+      "display": "Live counter in bottom card and monitoring screen"
+    },
+    "geofencing": {
+      "library": "expo-location (startGeofencingAsync)",
+      "task_manager": "expo-task-manager",
+      "behavior": "Must fire even when app is in background or device is locked",
+      "radius": "User-configurable, 200m–2km, default 500m"
+    },
+    "map": {
+      "library": "react-native-maps",
+      "map_style": "Custom dark JSON style (Google Maps dark theme or equivalent)",
+      "features": ["Tap-to-pin", "Animated user beacon", "Geofence circle overlay", "Destination marker"]
+    }
+  },
+
+  "alarm_system": {
+    "requirements": [
+      "Play audio at maximum system volume",
+      "Attempt to override silent/vibrate mode where the platform allows",
+      "Wake the device screen from lock state",
+      "Continue playing with app backgrounded or screen off",
+      "User can select alarm sound before departure",
+      "Escalating haptic vibration pattern alongside audio"
+    ],
+    "managed_workflow_implementation": {
+      "library": "expo-notifications",
+      "sound": "Custom sound file attached to notification",
+      "limitation_note": "Managed workflow cannot reliably override silent mode or guarantee background execution — treat this as MVP only"
+    },
+    "bare_workflow_implementation": {
+      "trigger": "Eject from Expo managed workflow when alarm reliability becomes critical",
+      "android": {
+        "full_screen_intent": "Launch a full-screen Activity on alarm trigger",
+        "wake_lock": "Acquire PARTIAL_WAKE_LOCK and FULL_WAKE_LOCK to keep CPU and screen alive",
+        "foreground_service": "Run a persistent foreground service with an ongoing notification during active monitoring",
+        "audio": "Use AudioManager to set stream volume to maximum and play via MediaPlayer",
+        "target_api": "API 31+ with all required permissions declared in AndroidManifest.xml"
+      },
+      "ios": {
+        "background_modes": "Enable 'location' and 'audio' in Info.plist background modes",
+        "critical_alerts": "Request UNNotificationSound.criticalSoundNamed entitlement (requires Apple approval)",
+        "audio_session": "Set AVAudioSession category to .playback with .mixWithOthers false so audio plays through silent switch",
+        "limitation_note": "iOS imposes strict background execution limits — best-effort implementation only"
+      }
+    }
+  },
+
+  "architecture": {
+    "navigation": "Expo Router (file-based routing)",
+    "state_management": "Zustand — stores: destination, alarm config, GPS state, alarm armed status",
+    "persistence": "react-native-mmkv — persist alarm sound choice, last destination, radius preference",
+    "animations": "React Native Reanimated 3 — all transitions, beacon pulse, alarm screen entrance",
+    "bottom_sheets": "@gorhom/bottom-sheet — destination card and sound picker",
+    "background_tasks": "expo-task-manager for geofence callbacks",
+    "reverse_geocoding": "expo-location reverseGeocodeAsync to display readable destination name"
+  },
+
+  "permissions_required": {
+    "ios": [
+      "NSLocationWhenInUseUsageDescription",
+      "NSLocationAlwaysAndWhenInUseUsageDescription",
+      "NSMicrophoneUsageDescription (if recording custom alarm)",
+      "UIBackgroundModes: location, audio, fetch"
+    ],
+    "android": [
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "WAKE_LOCK",
+      "FOREGROUND_SERVICE",
+      "RECEIVE_BOOT_COMPLETED",
+      "USE_FULL_SCREEN_INTENT",
+      "VIBRATE"
+    ]
+  },
+
+  "deliverables": [
+    "Full React Native + Expo project with TypeScript strict mode",
+    "Working managed workflow MVP with Expo Notifications alarm",
+    "Bare workflow alarm module with platform-native Android and iOS implementations",
+    "Dark map screen with live GPS tracking, pin placement, and geofence circle",
+    "Alarm sound picker with at least 5 built-in tones",
+    "Full-screen alarm takeover UI with dismiss and snooze",
+    "README.md documenting eject steps, native module setup, and permission configuration for both platforms"
+  ]
+}

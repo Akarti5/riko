@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Syne:wght@400..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background-base: #050b18;
+  --color-background-surface: #0d1b3e;
+  --color-accent-primary: #7986cb;
+  --color-accent-secondary: #80cbc4;
+  --color-text-primary: #e8eaf6;
+  --color-text-muted: #90a4ae;
+
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Syne", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background-base text-text-primary font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+/* Custom Leaflet Dark Mode */
+.leaflet-container {
+  background: #050b18 !important;
+}
+
+.leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+.leaflet-control-attribution {
+  background: rgba(5, 11, 24, 0.7) !important;
+  color: #90a4ae !important;
+}
+
+/* Hide leaflet controls for a cleaner look if desired, or restyle them */
+.leaflet-bar a {
+  background-color: #0d1b3e !important;
+  color: #7986cb !important;
+  border-bottom: 1px solid #1a2c5a !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: #1a2c5a !important;
+}
+
+/* Beacon Pulse Animation */
+@keyframes beacon-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(121, 134, 203, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(121, 134, 203, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(121, 134, 203, 0);
+  }
+}
+
+.beacon-pulse {
+  animation: beacon-pulse 2s infinite;
+}

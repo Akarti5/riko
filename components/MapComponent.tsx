@@ -56,13 +56,16 @@ export default function MapComponent() {
     if (destination && userLocation && mapRef.current) {
       mapRef.current.fitToCoordinates(
         [
-          { latitude: userLocation.latitude, longitude: userLocation.longitude },
-          { latitude: destination.latitude, longitude: destination.longitude }
+          {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+          },
+          { latitude: destination.latitude, longitude: destination.longitude },
         ],
         {
           edgePadding: { top: 180, right: 80, bottom: 180, left: 80 },
           animated: true,
-        }
+        },
       );
     }
   }, [destination]);
@@ -70,25 +73,29 @@ export default function MapComponent() {
   const onMapLongPress = (e: any) => {
     if (!isArmed) {
       const coord = e.nativeEvent.coordinate;
-      
+
       // Set temporary state while loading
       setDestination(coord, "Searching...");
 
-      const url = `https://api.maptiler.com/geocoding/${coord.longitude},${coord.latitude}.json?key=${process.env.MAP_API_KEY}`;
-      
+      // Use the confirmed working key from DestinationHeader
+
+      const url = `https://api.maptiler.com/geocoding/${coord.longitude},${coord.latitude}.json?key=SHKJsJP0nENFEUm6CDSX`;
+
       fetch(url)
         .then((res) => res.json())
         .then((data) => {
           const feature = data.features?.[0];
           if (feature) {
+            // Get the most specific name (e.g. "Soanierana")
             const name = feature.text || feature.place_name.split(",")[0];
             setDestination(coord, name);
           } else {
-            setDestination(coord, "Selected Location");
+            setDestination(coord, "Pinned Location");
           }
         })
-        .catch(() => {
-          setDestination(coord, "Selected Location");
+        .catch((error) => {
+          console.error("Reverse geocoding error:", error);
+          setDestination(coord, "Pinned Location");
         });
     }
   };
@@ -117,7 +124,11 @@ export default function MapComponent() {
 
         {destination && (
           <>
-            <Marker coordinate={destination} pinColor={Colors.dark.orange} zIndex={1} />
+            <Marker
+              coordinate={destination}
+              pinColor={Colors.dark.orange}
+              zIndex={1}
+            />
             <Circle
               center={destination}
               radius={config.radius}

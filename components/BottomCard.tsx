@@ -22,9 +22,11 @@ import SoundPicker from "./SoundPicker";
 
 export default function BottomCard() {
   const {
+    userLocation,
     destination,
     destinationName,
     isArmed,
+    isAlarmFiring,
     config,
     distance,
     setRadius,
@@ -82,9 +84,11 @@ export default function BottomCard() {
   return (
     <>
       <View style={styles.bottomSheetWrapper} pointerEvents="box-none">
-        <TouchableOpacity style={styles.locateButton} onPress={triggerCenter}>
-          <LocateFixed size={22} color={Colors.dark.orange} />
-        </TouchableOpacity>
+        {(!isAlarmFiring && userLocation) && (
+          <TouchableOpacity style={styles.locateButton} onPress={triggerCenter}>
+            <LocateFixed size={22} color={Colors.dark.orange} />
+          </TouchableOpacity>
+        )}
 
         <BottomSheet
           snapPoints={snapPoints}

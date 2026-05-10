@@ -133,8 +133,8 @@ export default function MapComponent() {
   const onMapLongPress = async (e: any) => {
     if (!isArmed) {
       const coord = {
-        latitude: e.geometry.coordinates[1],
-        longitude: e.geometry.coordinates[0],
+        latitude: e.nativeEvent.lngLat[1],
+        longitude: e.nativeEvent.lngLat[0],
       };
 
       setDestination(coord, "Searching...");

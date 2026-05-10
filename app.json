@@ -4,7 +4,7 @@
     "slug": "riko-destination-alarm",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon_riko.png",
+    "icon": "./assets/images/android-icon-foreground.png",
     "scheme": "riko",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -32,16 +32,12 @@
       ],
       "package": "com.anonymous.rikodestinationalarm"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/android-icon-foreground.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#050b18",

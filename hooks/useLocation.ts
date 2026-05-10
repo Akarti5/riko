@@ -2,9 +2,9 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { useRikoStore, haversineDistance } from '../store/useStore';
+import { useRikoStore, calculateDistance } from '../store/useStore';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 
 const LOCATION_TASK_NAME = 'background-location-task';
@@ -12,6 +12,23 @@ const IS_EXPO_GO = Constants.appOwnership === 'expo' || Constants.executionEnvir
 
 // Notification ID for tracking updates
 const MONITORING_NOTIFICATION_ID = 'riko-monitoring';
+
+// Notification channel setup for Android (required for vibration)
+if (Platform.OS === 'android') {
+  Notifications.setNotificationChannelAsync('riko-alarm', {
+    name: 'Rikô Alarms',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 500, 200, 500],
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    sound: 'default',
+    enableVibrate: true,
+    bypassDnd: true,
+    audioAttributes: {
+      usage: Notifications.AndroidAudioUsage.ALARM,
+      contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+    }
+  });
+}
 
 export function useLocationTracking() {
   const { setUserLocation, isArmed, destination, destinationName, config } = useRikoStore();
@@ -24,6 +41,29 @@ export function useLocationTracking() {
     const setupTracking = async () => {
       const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
       if (foregroundStatus !== 'granted') return;
+
+      // Request notification permissions
+      await Notifications.requestPermissionsAsync();
+
+      // FAST FIX: Get last known or quick position immediately to hide loading screen
+      const quickPos = await Location.getLastKnownPositionAsync();
+      if (quickPos) {
+        setUserLocation({
+          latitude: quickPos.coords.latitude,
+          longitude: quickPos.coords.longitude,
+        });
+      } else {
+        // If no last known, get a fast (low accuracy) fix
+        const fastPos = await Location.getCurrentPositionAsync({ 
+          accuracy: Location.Accuracy.Balanced 
+        }).catch(() => null);
+        if (fastPos) {
+          setUserLocation({
+            latitude: fastPos.coords.latitude,
+            longitude: fastPos.coords.longitude,
+          });
+        }
+      }
 
       // Always track in foreground for the map and circular HUD
       foregroundSubscription = await Location.watchPositionAsync(
@@ -52,8 +92,8 @@ export function useLocationTracking() {
             deferredUpdatesInterval: 100,
             showsBackgroundLocationIndicator: true,
             foregroundService: {
-              notificationTitle: 'Rikô Tracking Active',
-              notificationBody: `Monitoring distance to ${destinationName}...`,
+              notificationTitle: `Tracking ${destinationName}`,
+              notificationBody: 'Calculating distance...',
               notificationColor: '#FE6615',
             },
           });
@@ -91,47 +131,47 @@ try {
       longitude: location.coords.longitude,
     };
 
-    // Update in-app state
+    // Update in-app state (this will be seen when the app is reopened)
     state.setUserLocation(currentLoc);
 
     if (state.destination && state.isArmed) {
-      const dist = haversineDistance(currentLoc, state.destination);
+      const dist = calculateDistance(currentLoc, state.destination);
       const formattedDist = dist > 1000 
         ? `${(dist / 1000).toFixed(1)}km` 
         : `${Math.round(dist)}m`;
 
-      // Update the "Approach" notification
+      // Update the Primary (and only) Notification
       if (!state.isAlarmFiring) {
-        await Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: false,
-            shouldSetBadge: false,
-            shouldShowBanner: true,
-            shouldShowList: true,
-          }),
-        });
-
-        await Notifications.scheduleNotificationAsync({
-          identifier: MONITORING_NOTIFICATION_ID,
-          content: {
-            title: `Rikô: ${formattedDist} left`,
-            body: `Approaching ${state.destinationName}`,
-            sticky: true,
+        // We update the foreground service directly to avoid duplicate notifications
+        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 0,
+          deferredUpdatesInterval: 100,
+          showsBackgroundLocationIndicator: true,
+          foregroundService: {
+            notificationTitle: `Tracking ${state.destinationName}`,
+            notificationBody: `Distance: ${formattedDist}`,
+            notificationColor: '#FE6615',
           },
-          trigger: null,
         });
 
         // Trigger alarm if within radius
         if (dist <= state.config.radius) {
+          // Intense "Rapid Pulse" vibration
+          Vibration.vibrate([0, 800, 200, 800, 200, 800, 200, 800]);
+
           await Notifications.scheduleNotificationAsync({
             content: {
-              title: "Arrived near destination!",
-              body: `You are within ${state.config.radius}m of ${state.destinationName}.`,
-              sound: true,
-              priority: Notifications.AndroidNotificationPriority.HIGH,
+              title: "🚨 ARRIVED NEAR DESTINATION!",
+              body: `Wake up! You are within ${state.config.radius}m of ${state.destinationName}.`,
+              sound: true, // This will use the ALARM stream defined in the channel
+              priority: Notifications.AndroidNotificationPriority.MAX,
+              vibrate: [0, 1000, 500, 1000],
+              categoryIdentifier: 'alarm',
             },
-            trigger: null,
+            trigger: {
+              channelId: 'riko-alarm'
+            } as any,
           });
         }
       }

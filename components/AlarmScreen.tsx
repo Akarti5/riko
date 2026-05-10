@@ -1,47 +1,47 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Dimensions } from 'react-native';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
   withRepeat, 
   withTiming, 
   interpolate,
-  Easing
+  Easing,
+  runOnJS
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useRikoStore } from '../store/useStore';
 import { Colors } from '../constants/theme';
-import { Bell, XCircle } from 'lucide-react-native';
+import { Bell, ChevronRight } from 'lucide-react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 
 const { width, height } = Dimensions.get('window');
-
-const DEFAULT_ALARM_URI = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+const SLIDER_WIDTH = width - 80;
+const KNOB_SIZE = 64;
+const TRACK_END = SLIDER_WIDTH - KNOB_SIZE - 8;
 
 export default function AlarmScreen() {
   const { isAlarmFiring, destinationName, dismissAlarm, config } = useRikoStore();
   
-  // Keep player alive to avoid loading latency
-  const player = useAudioPlayer(config.soundUri || DEFAULT_ALARM_URI);
+  const player = useAudioPlayer(config.soundUri || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
   const status = useAudioPlayerStatus(player);
 
   const pulse = useSharedValue(0);
   const screenOpacity = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
 
   useEffect(() => {
     if (isAlarmFiring) {
-      // Instant visual transition
       screenOpacity.value = withTiming(1, { duration: 300 });
-      
       pulse.value = withRepeat(
         withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }),
         -1,
         false
       );
       
-      // INSTANT PLAYBACK
       player.loop = true;
-      player.seekTo(0);
       player.play();
 
       const interval = setInterval(() => {
@@ -56,31 +56,52 @@ export default function AlarmScreen() {
     } else {
       screenOpacity.value = withTiming(0, { duration: 300 });
       pulse.value = 0;
+      translateX.value = 0;
       player.pause();
-      player.seekTo(0);
     }
-  }, [isAlarmFiring, player]);
+  }, [isAlarmFiring]);
+
+  const slideGesture = Gesture.Pan()
+    .onStart(() => {
+      startX.value = translateX.value;
+    })
+    .onUpdate((event) => {
+      const newX = startX.value + event.translationX;
+      translateX.value = Math.max(0, Math.min(newX, TRACK_END));
+    })
+    .onEnd(() => {
+      if (translateX.value > TRACK_END * 0.8) {
+        translateX.value = withTiming(TRACK_END);
+        runOnJS(dismissAlarm)();
+      } else {
+        translateX.value = withTiming(0);
+      }
+    });
+
+  const knobStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const trackTextStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(translateX.value, [0, TRACK_END * 0.5], [1, 0]),
+  }));
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: screenOpacity.value,
     transform: [{ translateY: interpolate(screenOpacity.value, [0, 1], [height, 0]) }],
   }));
 
-  const pulseStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 2.5]) }],
-      opacity: interpolate(pulse.value, [0, 1], [0.6, 0]),
-    };
-  });
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(pulse.value, [0, 1], [1, 2.5]) }],
+    opacity: interpolate(pulse.value, [0, 1], [0.6, 0]),
+  }));
 
-  // Stay mounted for zero-latency trigger, but use pointerEvents to allow map interaction when hidden
   return (
     <Animated.View 
       style={[styles.container, containerStyle]} 
       pointerEvents={isAlarmFiring ? 'auto' : 'none'}
     >
       <View style={styles.content}>
-        {/* Animated Ripples */}
         <Animated.View style={[styles.ripple, pulseStyle]} />
         <Animated.View style={[styles.ripple, pulseStyle]} />
 
@@ -92,13 +113,19 @@ export default function AlarmScreen() {
         <Text style={styles.destinationName}>{destinationName}</Text>
         <Text style={styles.message}>You have reached your destination radius.</Text>
 
-        <TouchableOpacity 
-          style={styles.dismissButton}
-          onPress={dismissAlarm}
-        >
-          <XCircle size={24} color="#FFF" />
-          <Text style={styles.dismissText}>DISMISS ALARM</Text>
-        </TouchableOpacity>
+        {/* Slide to Dismiss Bar */}
+        <View style={styles.sliderContainer}>
+          <View style={styles.sliderTrack}>
+            <Animated.Text style={[styles.sliderTrackText, trackTextStyle]}>
+              SLIDE TO DISMISS
+            </Animated.Text>
+            <GestureDetector gesture={slideGesture}>
+              <Animated.View style={[styles.knob, knobStyle]}>
+                <ChevronRight size={32} color="#FFF" />
+              </Animated.View>
+            </GestureDetector>
+          </View>
+        </View>
       </View>
     </Animated.View>
   );
@@ -107,7 +134,7 @@ export default function AlarmScreen() {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
+    backgroundColor: '#050b18',
     zIndex: 1000,
   },
   content: {
@@ -152,27 +179,48 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   message: {
-    fontSize: 16,
-    color: Colors.dark.muted,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
     marginBottom: 80,
-    lineHeight: 24,
+    lineHeight: 20,
   },
-  dismissButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 24,
+  sliderContainer: {
+    width: SLIDER_WIDTH,
+    height: 80,
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  sliderTrack: {
+    width: '100%',
+    height: 72,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 36,
+    justifyContent: 'center',
+    padding: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  dismissText: {
-    color: '#FFF',
+  sliderTrackText: {
+    position: 'absolute',
+    alignSelf: 'center',
+    color: 'rgba(255,255,255,0.3)',
     fontWeight: '900',
-    fontSize: 16,
-    marginLeft: 12,
-    letterSpacing: 1,
+    fontSize: 14,
+    letterSpacing: 2,
+    marginLeft: 32,
+  },
+  knob: {
+    width: KNOB_SIZE,
+    height: KNOB_SIZE,
+    borderRadius: KNOB_SIZE / 2,
+    backgroundColor: Colors.dark.orange,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.dark.orange,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
 });

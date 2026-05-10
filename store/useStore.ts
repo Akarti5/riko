@@ -124,7 +124,8 @@ export const useRikoStore = create<RikoState>()(
       partialize: (state) => ({ 
         config: state.config, 
         destination: state.destination, 
-        destinationName: state.destinationName 
+        destinationName: state.destinationName,
+        isArmed: state.isArmed
       }),
     }
   )

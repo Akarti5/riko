@@ -53,13 +53,20 @@ export default function MonitoringHUD() {
     <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ scale: fadeAnim }] }]}>
       <View style={styles.hudWrapper}>
         <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} style={styles.svg}>
+          {/* Background Dark Mask for Visibility on Light Maps */}
+          <Circle
+            cx={CIRCLE_SIZE / 2}
+            cy={CIRCLE_SIZE / 2}
+            r={RADIUS + 15}
+            fill="rgba(5, 11, 24, 0.45)"
+          />
           {/* Background Ring */}
           <Circle
             cx={CIRCLE_SIZE / 2}
             cy={CIRCLE_SIZE / 2}
             r={RADIUS}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.05)"
+            stroke="rgba(255, 255, 255, 0.15)"
             strokeWidth="12"
           />
           {/* Progress Ring */}

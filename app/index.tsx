@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
+import { Dimensions, StyleSheet, View, Text } from "react-native";
 import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg";
+import { MapPin } from "lucide-react-native";
 import AlarmScreen from "../components/AlarmScreen";
 import BottomCard from "../components/BottomCard";
 import DestinationHeader from "../components/DestinationHeader";
@@ -14,6 +15,7 @@ const { width, height } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const userLocation = useRikoStore((state) => state.userLocation);
+  const destination = useRikoStore((state) => state.destination);
   const [showLoading, setShowLoading] = useState(true);
 
   // Initialize location tracking
@@ -55,6 +57,16 @@ export default function HomeScreen() {
           <Rect width="100%" height="100%" fill="url(#dotPattern)" />
         </Svg>
       </View>
+
+      {/* Instructional Hint */}
+      {!destination && !showLoading && (
+        <View style={styles.hintContainer} pointerEvents="none">
+          <View style={styles.hintBubble}>
+            <MapPin size={14} color="#FE6615" />
+            <Text style={styles.hintText}>LONG-PRESS MAP TO SET ALARM</Text>
+          </View>
+        </View>
+      )}
 
       {/* Search Bar */}
       <DestinationHeader />
@@ -99,5 +111,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+  },
+  hintContainer: {
+    position: "absolute",
+    top: 140, // Below the search header
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 5,
+  },
+  hintBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.9)",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(254, 102, 21, 0.3)",
+    gap: 8,
+  },
+  hintText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
   },
 });

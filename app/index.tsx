@@ -17,6 +17,7 @@ export default function HomeScreen() {
   const userLocation = useRikoStore((state) => state.userLocation);
   const destination = useRikoStore((state) => state.destination);
   const [showLoading, setShowLoading] = useState(true);
+  const [hasAcquiredLocation, setHasAcquiredLocation] = useState(false);
 
   // Initialize location tracking
   useLocationTracking();
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   useEffect(() => {
     // Hide loading screen only when location is acquired
     if (userLocation) {
+      setHasAcquiredLocation(true);
       // Small delay for smooth transition
       const timer = setTimeout(() => {
         setShowLoading(false);
@@ -37,7 +39,7 @@ export default function HomeScreen() {
       {showLoading && <LoadingScreen />}
       
       {/* Map is at the bottom of the stack */}
-      <MapComponent />
+      {hasAcquiredLocation && <MapComponent />}
 
       {/* Constellation Overlay - ported from web */}
       <View style={styles.constellationOverlay} pointerEvents="none">

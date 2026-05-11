@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Rikô",
-    "slug": "riko-destination-alarm",
+    "slug": "riko-alarm-destination",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/android-icon-foreground.png",
@@ -60,8 +60,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "feda1e66-dcb5-46a4-971e-3843115333c3"
+        "projectId": "70fd676f-c39f-4e63-b790-c661dff4a869"
       }
-    }
+    },
+    "owner": "akarti5"
   }
 }

@@ -6,8 +6,18 @@ android {
         abi {
             enable true
             reset()
-            include "arm64-v8a"
+            include "armeabi-v7a", "arm64-v8a"
             universalApk false
+        }
+    }
+}
+
+import com.android.build.OutputFile
+android.applicationVariants.all { variant ->
+    variant.outputs.each { output ->
+        def abi = output.getFilter(OutputFile.ABI)
+        if (abi != null) {
+            output.versionCodeOverride = (abi == 'armeabi-v7a' ? 1 : 2) * 1000 + variant.versionCode
         }
     }
 }

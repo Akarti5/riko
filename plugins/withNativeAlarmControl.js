@@ -5,7 +5,7 @@ module.exports = function withNativeAlarmControl(config) {
   config = withMainActivity(config, async (config) => {
     let content = config.modResults.contents;
 
-    // Add necessary imports
+    // Add necessary imports with a more robust regex
     const imports = [
       'import android.media.AudioAttributes',
       'import android.media.MediaPlayer',
@@ -14,11 +14,12 @@ module.exports = function withNativeAlarmControl(config) {
       'import com.facebook.react.bridge.ReactContextBaseJavaModule',
       'import com.facebook.react.bridge.ReactMethod',
       'import com.facebook.react.bridge.ReactApplicationContext',
+      'import com.facebook.react.bridge.NativeModule',
     ];
 
     imports.forEach(imp => {
       if (!content.includes(imp)) {
-        content = content.replace('package com.anonymous.rikodestinationalarm', `package com.anonymous.rikodestinationalarm\n${imp}`);
+        content = content.replace(/package .*/, `$& \n${imp}`);
       }
     });
 
@@ -35,19 +36,17 @@ class RikoAlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     fun playAlarm(uriString: String) {
         stopAlarm()
         try {
-            var alarmUri = if (uriString == "default" || uriString.isEmpty()) {
+            val alarmUri = if (uriString == "default" || uriString.isEmpty()) {
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             } else {
                 Uri.parse(uriString)
             }
 
             // Fallback to notification sound if alarm sound is not set/found
-            if (alarmUri == null) {
-                alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            }
+            val finalUri = alarmUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(reactApplicationContext, alarmUri)
+                setDataSource(getReactApplicationContext(), finalUri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -69,8 +68,10 @@ class RikoAlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
     @ReactMethod
     fun stopAlarm() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+        } catch (e: Exception) { }
         mediaPlayer = null
     }
 }

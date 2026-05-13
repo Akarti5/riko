@@ -12,10 +12,9 @@ android {
     }
 }
 
-import com.android.build.OutputFile
 android.applicationVariants.all { variant ->
     variant.outputs.each { output ->
-        def abi = output.getFilter(OutputFile.ABI)
+        def abi = output.getFilter(com.android.build.OutputFile.ABI)
         if (abi != null) {
             output.versionCodeOverride = (abi == 'armeabi-v7a' ? 1 : 2) * 1000 + variant.versionCode
         }

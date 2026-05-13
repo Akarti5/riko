@@ -1,20 +1,19 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text, Dimensions } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
-  interpolate,
-  Easing,
-  runOnJS
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { useRikoStore } from '../store/useStore';
-import { Colors } from '../constants/theme';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { Bell, ChevronRight } from 'lucide-react-native';
-import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
-import { Platform, Vibration, NativeModules } from 'react-native';
+import React, { useEffect } from 'react';
+import { Dimensions, NativeModules, Platform, StyleSheet, Text, Vibration, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
+} from 'react-native-reanimated';
+import { Colors } from '../constants/theme';
+import { useRikoStore } from '../store/useStore';
 const { RikoAlarmModule } = NativeModules;
 
 const { width, height } = Dimensions.get('window');
@@ -24,7 +23,7 @@ const TRACK_END = SLIDER_WIDTH - KNOB_SIZE - 8;
 
 export default function AlarmScreen() {
   const { isAlarmFiring, destinationName, dismissAlarm, config } = useRikoStore();
-  
+
   const ALARM_URI = Platform.select({
     android: 'default',
     ios: 'file:///System/Library/Audio/UISounds/alarm.caf', // Attempt to use iOS system alarm sound
@@ -46,7 +45,7 @@ export default function AlarmScreen() {
         -1,
         false
       );
-      
+
       // Configure audio mode to use high priority/alarm behavior
       setAudioModeAsync({
         playsInSilentMode: true,
@@ -66,13 +65,14 @@ export default function AlarmScreen() {
         // High intensity vibration pattern
         Vibration.vibrate([0, 500, 200, 500], true);
       }, 2000);
-      
+
       return () => {
         if (Platform.OS === 'android' && RikoAlarmModule) {
           RikoAlarmModule.stopAlarm();
         }
         player.pause();
         player.seekTo(0);
+        Vibration.cancel();
         clearInterval(interval);
       };
     } else {
@@ -122,8 +122,8 @@ export default function AlarmScreen() {
   }));
 
   return (
-    <Animated.View 
-      style={[styles.container, containerStyle]} 
+    <Animated.View
+      style={[styles.container, containerStyle]}
       pointerEvents={isAlarmFiring ? 'auto' : 'none'}
     >
       <View style={styles.content}>

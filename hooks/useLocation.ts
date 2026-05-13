@@ -1,11 +1,11 @@
-import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
-import * as Notifications from 'expo-notifications';
-import { useEffect } from 'react';
-import { useRikoStore, calculateDistance } from '../store/useStore';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { Platform, Vibration } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
+import { useEffect } from 'react';
+import { Platform, Vibration } from 'react-native';
+import { calculateDistance, useRikoStore } from '../store/useStore';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 const IS_EXPO_GO = Constants.appOwnership === 'expo' || Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -32,7 +32,7 @@ if (Platform.OS === 'android') {
 
 export function useLocationTracking() {
   const { setUserLocation, isArmed, destination, destinationName, config } = useRikoStore();
-  
+
   useKeepAwake();
 
   useEffect(() => {
@@ -54,8 +54,8 @@ export function useLocationTracking() {
         });
       } else {
         // If no last known, get a fast (low accuracy) fix
-        const fastPos = await Location.getCurrentPositionAsync({ 
-          accuracy: Location.Accuracy.Balanced 
+        const fastPos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced
         }).catch(() => null);
         if (fastPos) {
           setUserLocation({
@@ -103,7 +103,7 @@ export function useLocationTracking() {
         const isRunning = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
         if (isRunning) {
           await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
-          await Notifications.dismissNotificationAsync(MONITORING_NOTIFICATION_ID).catch(() => {});
+          await Notifications.dismissNotificationAsync(MONITORING_NOTIFICATION_ID).catch(() => { });
         }
       }
     };
@@ -120,7 +120,7 @@ export function useLocationTracking() {
 try {
   TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
     if (error || !data) return;
-    
+
     const { locations } = data;
     const location = locations[0];
     if (!location) return;
@@ -136,8 +136,8 @@ try {
 
     if (state.destination && state.isArmed) {
       const dist = calculateDistance(currentLoc, state.destination);
-      const formattedDist = dist > 1000 
-        ? `${(dist / 1000).toFixed(1)}km` 
+      const formattedDist = dist > 1000
+        ? `${(dist / 1000).toFixed(1)}km`
         : `${Math.round(dist)}m`;
 
       // Update the Primary (and only) Notification
@@ -177,4 +177,4 @@ try {
       }
     }
   });
-} catch (e) {}
+} catch (e) { }

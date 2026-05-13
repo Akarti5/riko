@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rikô",
     "slug": "riko-alarm-destination",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/android-icon-foreground.png",
     "scheme": "riko",
@@ -51,7 +51,9 @@
       "expo-audio",
       "@maplibre/maplibre-react-native",
       "./plugins/withLockScreenFeatures",
-      "./plugins/withAbiSplitting"
+      "./plugins/withAbiSplitting",
+      "./plugins/withAlarmVolume",
+      "./plugins/withNativeAlarmControl"
     ],
     "experiments": {
       "typedRoutes": true,

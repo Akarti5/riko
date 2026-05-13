@@ -13,8 +13,9 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useRikoStore } from '../store/useStore';
 import { Colors } from '../constants/theme';
 import { Bell, ChevronRight } from 'lucide-react-native';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import * as Haptics from 'expo-haptics';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import { Platform, Vibration, NativeModules } from 'react-native';
+const { RikoAlarmModule } = NativeModules;
 
 const { width, height } = Dimensions.get('window');
 const SLIDER_WIDTH = width - 80;
@@ -24,7 +25,12 @@ const TRACK_END = SLIDER_WIDTH - KNOB_SIZE - 8;
 export default function AlarmScreen() {
   const { isAlarmFiring, destinationName, dismissAlarm, config } = useRikoStore();
   
-  const player = useAudioPlayer(config.soundUri || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+  const ALARM_URI = Platform.select({
+    android: 'default',
+    ios: 'file:///System/Library/Audio/UISounds/alarm.caf', // Attempt to use iOS system alarm sound
+  });
+
+  const player = useAudioPlayer(config.soundUri || ALARM_URI);
   const status = useAudioPlayerStatus(player);
 
   const pulse = useSharedValue(0);
@@ -41,14 +47,30 @@ export default function AlarmScreen() {
         false
       );
       
-      player.loop = true;
-      player.play();
+      // Configure audio mode to use high priority/alarm behavior
+      setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
+      }).catch(console.error);
+
+      // Use Native Module for Android to force USAGE_ALARM (Volume slider)
+      if (Platform.OS === 'android' && RikoAlarmModule) {
+        RikoAlarmModule.playAlarm(config.soundUri || ALARM_URI);
+      } else {
+        player.loop = true;
+        player.play();
+      }
 
       const interval = setInterval(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // High intensity vibration pattern
+        Vibration.vibrate([0, 500, 200, 500], true);
       }, 2000);
       
       return () => {
+        if (Platform.OS === 'android' && RikoAlarmModule) {
+          RikoAlarmModule.stopAlarm();
+        }
         player.pause();
         player.seekTo(0);
         clearInterval(interval);
@@ -57,6 +79,9 @@ export default function AlarmScreen() {
       screenOpacity.value = withTiming(0, { duration: 300 });
       pulse.value = 0;
       translateX.value = 0;
+      if (Platform.OS === 'android' && RikoAlarmModule) {
+        RikoAlarmModule.stopAlarm();
+      }
       player.pause();
     }
   }, [isAlarmFiring]);

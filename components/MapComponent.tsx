@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Text } from "react-native";
+import * as Network from 'expo-network';
+import { WifiOff } from 'lucide-react-native';
 import { 
   Map, 
   Camera, 
@@ -29,6 +31,19 @@ export default function MapComponent() {
   } = useRikoStore();
 
   const [hasInitiallyCentered, setHasInitiallyCentered] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
+
+  // Check connectivity
+  useEffect(() => {
+    const checkConnection = async () => {
+      const state = await Network.getNetworkStateAsync();
+      setIsConnected(!!(state.isConnected && state.isInternetReachable));
+    };
+
+    checkConnection();
+    const interval = setInterval(checkConnection, 5000); // Check every 5s
+    return () => clearInterval(interval);
+  }, []);
 
   // Manual center via button
   useEffect(() => {
@@ -236,6 +251,15 @@ export default function MapComponent() {
           </Marker>
         )}
       </Map>
+
+      {!isConnected && (
+        <View style={styles.offlineBanner} pointerEvents="none">
+          <WifiOff size={14} color="#FFF" />
+          <Text style={styles.offlineText}>
+            Internet connection is required to browse maps
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -277,5 +301,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 2,
     elevation: 5,
+  },
+  offlineBanner: {
+    position: "absolute",
+    bottom: 100, // Above the HUD/BottomCard area
+    left: 20,
+    right: 20,
+    backgroundColor: "rgba(220, 38, 38, 0.9)", // Reddish
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    zIndex: 100,
+  },
+  offlineText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 });

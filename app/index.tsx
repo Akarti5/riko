@@ -8,6 +8,7 @@ import DestinationHeader from "../components/DestinationHeader";
 import MapComponent from "../components/MapComponent";
 import MonitoringHUD from "../components/MonitoringHUD";
 import LoadingScreen from "../components/LoadingScreen";
+import UpdateChecker from "../components/UpdateChecker";
 import { useLocationTracking } from "../hooks/useLocation";
 import { useRikoStore } from "../store/useStore";
 
@@ -81,6 +82,9 @@ export default function HomeScreen() {
 
       {/* Highest Priority Overlay: Alarm Screen */}
       <AlarmScreen />
+
+      {/* Global Update Notification */}
+      <UpdateChecker />
     </View>
   );
 }

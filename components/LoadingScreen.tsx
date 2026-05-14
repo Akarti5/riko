@@ -76,7 +76,7 @@ export default function LoadingScreen() {
       </View>
       
       <View style={styles.footer}>
-        <Text style={styles.footerText}>HIGH-PRECISION TRANSIT HUB</Text>
+        <Text style={styles.footerText}> © By Eddy Francisco. All rights reserved.</Text>
       </View>
     </View>
   );

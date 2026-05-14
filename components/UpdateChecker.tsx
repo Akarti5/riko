@@ -1,12 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Linking, Platform } from 'react-native';
-import Constants from 'expo-constants';
-import { Download } from 'lucide-react-native';
-import { Colors } from '../constants/theme';
+import Constants from "expo-constants";
+import { Download } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import {
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Colors } from "../constants/theme";
 
 // URL app.json from my GitHub
-const REMOTE_CONFIG_URL = 'https://gist.githubusercontent.com/Akarti5/ff3bddef094fe074ae501ffebb9d80cc/raw/9c011d7aff708a8d54e9756ebefb3ec6bbb56a69/version.json';
-const UPDATE_LINK = 'https://apkpure.com/p/com.anonymous.rikodestinationalarm';
+const REMOTE_CONFIG_URL =
+  "https://gist.githubusercontent.com/Akarti5/ff3bddef094fe074ae501ffebb9d80cc/raw/version.json";
+const UPDATE_LINK = "https://apkpure.com/p/com.anonymous.rikodestinationalarm";
 
 export default function UpdateChecker() {
   const [showUpdate, setShowUpdate] = useState(false);
@@ -23,7 +30,7 @@ export default function UpdateChecker() {
           setShowUpdate(true);
         }
       } catch (error) {
-        console.warn('Failed to check for updates:', error);
+        console.warn("Failed to check for updates:", error);
       }
     };
 
@@ -31,8 +38,8 @@ export default function UpdateChecker() {
   }, []);
 
   const isNewerVersion = (remote: string, local: string) => {
-    const remoteParts = remote.split('.').map(Number);
-    const localParts = local.split('.').map(Number);
+    const remoteParts = remote.split(".").map(Number);
+    const localParts = local.split(".").map(Number);
 
     for (let i = 0; i < Math.max(remoteParts.length, localParts.length); i++) {
       const r = remoteParts[i] || 0;
@@ -53,9 +60,11 @@ export default function UpdateChecker() {
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>Mise à jour disponible</Text>
-          <Text style={styles.message}>Une nouvelle version de Rikô est disponible.</Text>
+          <Text style={styles.message}>
+            Une nouvelle version de Rikô est disponible.
+          </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.button}
           onPress={() => Linking.openURL(UPDATE_LINK)}
         >
@@ -68,21 +77,21 @@ export default function UpdateChecker() {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 110, // Just below the search header
     left: 20,
     right: 20,
     zIndex: 2000,
   },
   card: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
     borderRadius: 16,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'rgba(254, 102, 21, 0.3)',
-    shadowColor: '#000',
+    borderColor: "rgba(254, 102, 21, 0.3)",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
@@ -92,9 +101,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(254, 102, 21, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(254, 102, 21, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   textContainer: {
@@ -103,11 +112,11 @@ const styles = StyleSheet.create({
   title: {
     color: Colors.dark.orange,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 0.5,
   },
   message: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: "rgba(255, 255, 255, 0.6)",
     fontSize: 11,
     marginTop: 2,
   },
@@ -119,8 +128,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   buttonText: {
-    color: '#000',
+    color: "#000",
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: "900",
   },
 });

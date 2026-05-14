@@ -10,11 +10,13 @@ module.exports = function withNativeAlarmControl(config) {
       'import android.media.RingtoneManager',
       'import android.net.Uri',
       'import android.os.Build',
+      'import android.os.PowerManager',
+      'import android.content.Context',
       'import android.view.WindowManager',
-      'import com.facebook.react.bridge.ReactContextBaseJavaModule',
-      'import com.facebook.react.bridge.ReactMethod',
-      'import com.facebook.react.bridge.ReactApplicationContext',
       'import com.facebook.react.bridge.NativeModule',
+      'import com.facebook.react.bridge.ReactApplicationContext',
+      'import com.facebook.react.bridge.ReactMethod',
+      'import com.facebook.react.bridge.ReactContextBaseJavaModule',
     ];
 
     imports.forEach(imp => {
@@ -34,22 +36,37 @@ class RikoAlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     fun playAlarm(uriString: String) {
         stopAlarm()
         
-        // --- SECURE SCREEN WAKE UP LOGIC ---
-        val activity = reactApplicationContext.currentActivity
-        activity?.runOnUiThread {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                activity.setShowWhenLocked(true)
-                activity.setTurnScreenOn(true)
-            } else {
-                @Suppress("DEPRECATION")
-                activity.window.addFlags(
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                )
+        // --- FORCE SCREEN POWER ON (WakeLock) ---
+        try {
+            val powerManager = reactApplicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wakeLock = powerManager.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or
+                PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                PowerManager.ON_AFTER_RELEASE,
+                "Riko:AlarmWakeLock"
+            )
+            wakeLock.acquire(3000) // Turn screen on for at least 3 seconds
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // --- CONFIGURE WINDOW FLAGS ---
+        reactApplicationContext.currentActivity?.let { activity ->
+            activity.runOnUiThread {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                    activity.setShowWhenLocked(true)
+                    activity.setTurnScreenOn(true)
+                } else {
+                    @Suppress("DEPRECATION")
+                    activity.window.addFlags(
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    )
+                }
+                activity.window.addFlags(WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON)
             }
-            activity.window.addFlags(WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON)
         }
 
         try {

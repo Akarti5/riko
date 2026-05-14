@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { StyleSheet, View, Text } from "react-native";
 import * as Network from 'expo-network';
 import { WifiOff } from 'lucide-react-native';
+import Animated, { FadeIn, FadeOut, useSharedValue, withTiming, withDelay } from 'react-native-reanimated';
 import { 
   Map, 
   Camera, 
@@ -32,18 +33,27 @@ export default function MapComponent() {
 
   const [hasInitiallyCentered, setHasInitiallyCentered] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
+  const [showBanner, setShowBanner] = useState(false);
 
   // Check connectivity
   useEffect(() => {
     const checkConnection = async () => {
       const state = await Network.getNetworkStateAsync();
-      setIsConnected(!!(state.isConnected && state.isInternetReachable));
+      const connected = !!(state.isConnected && state.isInternetReachable);
+      
+      // Only show banner if we lost connection (transition from connected to disconnected)
+      if (isConnected && !connected) {
+        setShowBanner(true);
+        setTimeout(() => setShowBanner(false), 3000);
+      }
+      
+      setIsConnected(connected);
     };
 
     checkConnection();
     const interval = setInterval(checkConnection, 5000); // Check every 5s
     return () => clearInterval(interval);
-  }, []);
+  }, [isConnected]);
 
   // Manual center via button
   useEffect(() => {
@@ -252,13 +262,18 @@ export default function MapComponent() {
         )}
       </Map>
 
-      {!isConnected && (
-        <View style={styles.offlineBanner} pointerEvents="none">
+      {showBanner && (
+        <Animated.View 
+          entering={FadeIn.duration(400)} 
+          exiting={FadeOut.duration(800)}
+          style={styles.offlineBanner} 
+          pointerEvents="none"
+        >
           <WifiOff size={14} color="#FFF" />
           <Text style={styles.offlineText}>
             Internet connection is required to browse maps
           </Text>
-        </View>
+        </Animated.View>
       )}
     </View>
   );

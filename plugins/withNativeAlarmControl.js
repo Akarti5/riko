@@ -20,13 +20,25 @@ module.exports = function withNativeAlarmControl(config) {
     ];
 
     imports.forEach(imp => {
-      if (!content.includes(imp)) {
+      const escapedImp = imp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`^${escapedImp}\\s*$`, 'm');
+      if (!regex.test(content)) {
         content = content.replace(/package .*/, `$& \n${imp}`);
       }
     });
 
-    if (!content.includes('class RikoAlarmModule')) {
-      content += `
+    // Cleanup markers
+    const startMarker = '// @riko-begin';
+    const endMarker = '// @riko-end';
+    if (content.includes(startMarker)) {
+        const parts = content.split(startMarker);
+        const secondPart = (parts[1] || '').split(endMarker);
+        content = parts[0] + (secondPart[1] || '');
+    }
+    content = content.replace(/class RikoAlarmModule[\s\S]*?class RikoAlarmPackage[\s\S]*?}/g, '');
+
+    const nativeCode = `
+// @riko-begin
 class RikoAlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     private var mediaPlayer: MediaPlayer? = null
 
@@ -38,35 +50,40 @@ class RikoAlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         
         // --- FORCE SCREEN POWER ON (WakeLock) ---
         try {
-            val powerManager = reactApplicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val powerManager = getReactApplicationContext().getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK or
                 PowerManager.ACQUIRE_CAUSES_WAKEUP or
                 PowerManager.ON_AFTER_RELEASE,
                 "Riko:AlarmWakeLock"
             )
-            wakeLock.acquire(3000) // Turn screen on for at least 3 seconds
+            wakeLock.acquire(3000)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        // --- CONFIGURE WINDOW FLAGS ---
-        reactApplicationContext.currentActivity?.let { activity ->
-            activity.runOnUiThread {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                    activity.setShowWhenLocked(true)
-                    activity.setTurnScreenOn(true)
-                } else {
-                    @Suppress("DEPRECATION")
-                    activity.window.addFlags(
-                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                    )
+        // --- CONFIGURE WINDOW FLAGS (Safe Access) ---
+        val activity = getReactApplicationContext().getCurrentActivity()
+        if (activity != null) {
+            activity.runOnUiThread(Runnable {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                        activity.setShowWhenLocked(true)
+                        activity.setTurnScreenOn(true)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        activity.getWindow().addFlags(
+                            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                        )
+                    }
+                    activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-                activity.window.addFlags(WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON)
-            }
+            })
         }
 
         try {
@@ -78,7 +95,7 @@ class RikoAlarmModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
             val finalUri = alarmUri ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(reactApplicationContext, finalUri)
+                setDataSource(getReactApplicationContext(), finalUri)
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
@@ -113,9 +130,10 @@ class RikoAlarmPackage : com.facebook.react.ReactPackage {
         return emptyList()
     }
 }
+// @riko-end
 `;
-    }
 
+    content = content.trim() + "\n" + nativeCode;
     config.modResults.contents = content;
     return config;
   });
@@ -125,7 +143,7 @@ class RikoAlarmPackage : com.facebook.react.ReactPackage {
     if (!content.includes('add(RikoAlarmPackage())')) {
       content = content.replace(
         'PackageList(this).packages.apply {',
-        'PackageList(this).packages.apply {\n              add(RikoAlarmPackage())'
+        'PackageList(this).packages.apply {\\n              add(RikoAlarmPackage())'
       );
     }
     config.modResults.contents = content;

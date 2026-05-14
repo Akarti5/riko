@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import { Download } from "lucide-react-native";
+import { Download, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   Linking,
@@ -17,6 +17,7 @@ const UPDATE_LINK = "https://apkpure.com/p/com.anonymous.rikodestinationalarm";
 
 export default function UpdateChecker() {
   const [showUpdate, setShowUpdate] = useState(false);
+  const [ignored, setIgnored] = useState(false);
   const currentVersion = Constants.expoConfig?.version;
 
   useEffect(() => {
@@ -24,9 +25,9 @@ export default function UpdateChecker() {
       try {
         const response = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`);
         const data = await response.json();
-        const remoteVersion = data.expo?.version;
+        const remoteVersion = data.version;
 
-        if (remoteVersion && isNewerVersion(remoteVersion, currentVersion)) {
+        if (remoteVersion && currentVersion && isNewerVersion(remoteVersion, currentVersion)) {
           setShowUpdate(true);
         }
       } catch (error) {
@@ -50,7 +51,7 @@ export default function UpdateChecker() {
     return false;
   };
 
-  if (!showUpdate) return null;
+  if (!showUpdate || ignored) return null;
 
   return (
     <View style={styles.container}>
@@ -64,12 +65,20 @@ export default function UpdateChecker() {
             Une nouvelle version de Rikô est disponible.
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => Linking.openURL(UPDATE_LINK)}
-        >
-          <Text style={styles.buttonText}>INSTALLER</Text>
-        </TouchableOpacity>
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.ignoreButton}
+            onPress={() => setIgnored(true)}
+          >
+            <Text style={styles.ignoreButtonText}>IGNORER</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => Linking.openURL(UPDATE_LINK)}
+          >
+            <Text style={styles.buttonText}>INSTALLER</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -120,12 +129,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  ignoreButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  ignoreButtonText: {
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 9,
+    fontWeight: "900",
+  },
   button: {
     backgroundColor: Colors.dark.orange,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    marginLeft: 8,
+    marginLeft: 4,
   },
   buttonText: {
     color: "#000",

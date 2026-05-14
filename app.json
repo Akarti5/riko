@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rikô",
     "slug": "riko-alarm-destination",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/android-icon-foreground.png",
     "scheme": "riko",
@@ -12,7 +12,8 @@
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 2,
+      //increment this for every update 
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#050b18",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

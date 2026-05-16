@@ -12,8 +12,7 @@
       "supportsTablet": true
     },
     "android": {
-      //increment this for every update 
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#050b18",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

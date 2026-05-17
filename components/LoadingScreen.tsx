@@ -1,16 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Animated, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Animated, ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/theme';
-import Svg, { Circle } from 'react-native-svg';
 
-const { width } = Dimensions.get('window');
 
 export default function LoadingScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
-    // Elegant breathing pulse
+    // Breathing pulse animation on the logo container
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -25,48 +21,16 @@ export default function LoadingScreen() {
         }),
       ])
     ).start();
-
-    // Subtle rotation
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 4000,
-        useNativeDriver: true,
-      })
-    ).start();
   }, []);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.logoContainer, { transform: [{ scale: pulseAnim }] }]}>
-        <Animated.View style={{ transform: [{ rotate: spin }] }}>
-          <Svg width="120" height="120" viewBox="0 0 100 100">
-            <Circle
-              cx="50"
-              cy="50"
-              r="45"
-              stroke={Colors.dark.orange}
-              strokeWidth="2"
-              fill="none"
-              strokeDasharray="150, 100"
-              opacity={0.3}
-            />
-            <Circle
-              cx="50"
-              cy="50"
-              r="35"
-              stroke={Colors.dark.orange}
-              strokeWidth="4"
-              fill="none"
-              strokeDasharray="80, 150"
-            />
-          </Svg>
-        </Animated.View>
+        {/* Use ActivityIndicator instead of SVG — SVG can crash on Huawei/non-GMS devices */}
+        <ActivityIndicator
+          size={80}
+          color={Colors.dark.orange}
+        />
         <View style={styles.centerDot} />
       </Animated.View>
 

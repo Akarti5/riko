@@ -46,17 +46,24 @@ export function useLocationTracking() {
       await Notifications.requestPermissionsAsync();
 
       // FAST FIX: Get last known or quick position immediately to hide loading screen
-      const quickPos = await Location.getLastKnownPositionAsync();
+      const quickPos = await Location.getLastKnownPositionAsync().catch(() => null);
       if (quickPos) {
         setUserLocation({
           latitude: quickPos.coords.latitude,
           longitude: quickPos.coords.longitude,
         });
       } else {
-        // If no last known, get a fast (low accuracy) fix
-        const fastPos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced
-        }).catch(() => null);
+        // Non-GMS devices (Huawei) can hang on getCurrentPositionAsync.
+        // Race it against a 5-second timeout to avoid blocking the loading screen.
+        const timeoutPromise = new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), 5000)
+        );
+        const fastPos = await Promise.race([
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          }).catch(() => null),
+          timeoutPromise,
+        ]);
         if (fastPos) {
           setUserLocation({
             latitude: fastPos.coords.latitude,

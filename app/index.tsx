@@ -24,7 +24,7 @@ export default function HomeScreen() {
   useLocationTracking();
 
   useEffect(() => {
-    // Hide loading screen only when location is acquired
+    // Hide loading screen when location is acquired
     if (userLocation) {
       setHasAcquiredLocation(true);
       // Small delay for smooth transition
@@ -34,6 +34,16 @@ export default function HomeScreen() {
       return () => clearTimeout(timer);
     }
   }, [userLocation]);
+
+  useEffect(() => {
+    // HARD FALLBACK: Always hide loading screen after 8 seconds.
+    // This ensures non-GMS devices (Huawei) don't get stuck forever
+    // when location APIs fail silently without GMS.
+    const fallbackTimer = setTimeout(() => {
+      setShowLoading(false);
+    }, 8000);
+    return () => clearTimeout(fallbackTimer);
+  }, []);
 
   return (
     <View style={styles.container}>
